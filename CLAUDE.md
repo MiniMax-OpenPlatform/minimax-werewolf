@@ -1,111 +1,132 @@
-- Player的id为数字
-- 只有Player需要使用的type，才需要放到shared，比如game master调用api的type
+# CLAUDE.md
 
-当前包管理工具为Bun
-- 使用Bun不需要进行build，并且系统中也没有build
-- 永远ultrathink
-- 你的任何Typescript类型修复，永远不要使用any
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## MobX React 开发规范
+## Project Overview
+AI-powered Werewolf game framework - a monorepo implementing an AI-driven multiplayer werewolf game with distinct AI personalities.
 
-项目使用 MobX 进行状态管理，请严格遵循以下最佳实践：
+## Tech Stack & Package Manager
+- **Package Manager**: Bun (no build step needed for backend, direct execution)
+- **Frontend**: Vite + React + MobX + TailwindCSS
+- **Backend**: Node.js/Bun + Express
+- **AI Integration**: OpenAI SDK, Langfuse telemetry
+- **State Management**: MobX with global stores
 
-### 核心原则
-1. **全局状态优先**：直接使用全局 MobX store，避免通过 props 传递状态
-2. **Computed 缓存**：使用 `computed` 属性缓存派生数据，提升性能
-3. **Observer 包装**：所有使用 MobX 状态的组件必须用 `observer` 包装
-4. **避免冗余 API**：直接从状态获取数据，避免不必要的网络请求
+## Critical Development Rules
+- **TypeScript**: NEVER use `any` type - always use proper typing
+- **Always use ultrathink** for complex reasoning tasks
+- **Player IDs**: Always use numbers for Player IDs
+- **Shared Types**: Only put types in shared/ if needed by Player services (e.g., API types called by game master)
 
-### 详细实践指南
-参考：`docs/mobx-react-best-practices.md`
+## Common Development Commands
 
-### 组件重构模式
+### Development
+```bash
+# Start all 6 AI players (ports 3001-3006)
+./scripts/dev-players.sh
+# OR
+bun run dev:players
+
+# Start game master frontend (port 3000)
+bun run dev:game-master
+
+# Start individual player with config
+bun run dev:player:aggressive
+bun run dev:player:conservative
+bun run dev:player:witty
+```
+
+### Code Quality
+```bash
+# Type checking (entire monorepo)
+bun run typecheck
+bunx tsc --build
+
+# Type checking specific packages
+bun run typecheck:frontend
+bun run typecheck:backend
+
+# Linting
+bun run lint
+
+# Testing (when tests exist)
+bun test
+bun run test:packages
+```
+
+## Architecture Overview
+
+### Monorepo Structure
+```
+packages/
+├── game-master-vite/   # Frontend UI (Vite + React + MobX)
+│   └── src/
+│       ├── components/ # React components with observer HOC
+│       ├── stores/     # MobX global stores
+│       └── lib/        # GameMaster class
+├── player/             # AI player server
+│   └── src/
+│       ├── services/   # AIService, PersonalityFactory
+│       └── configs/    # Player personality configs
+shared/
+├── types/              # Shared TypeScript types & schemas
+│   └── src/
+│       ├── api.ts      # API request/response types
+│       └── schemas.ts  # Zod schemas for AI responses
+├── lib/                # Shared utilities & Langfuse integration
+└── prompts/            # AI prompt templates
+```
+
+### Core Game Flow
+1. **Game Creation**: Frontend calls `gameMaster.createGame(6)` → adds 6 AI players → assigns roles
+2. **Game Phases**: Day (discussion + voting) → Night (role abilities) → repeat
+3. **AI Players**: Each runs on separate port (3001-3006), receives game state via HTTP API
+4. **Role System**: 4 roles only - VILLAGER, WEREWOLF, SEER, WITCH (no HUNTER/GUARD)
+
+## MobX React Development Pattern
+
+### Required Pattern
 ```typescript
-// ✅ 标准模式
+// ✅ ALWAYS use this pattern
 import { observer } from 'mobx-react-lite';
-import { globalStore } from '@/stores';
+import { gameMaster } from '@/stores/gameStore';
 
 export const Component = observer(function Component() {
-  const data = globalStore.computedProperty; // 直接使用全局状态
+  const data = gameMaster.computedProperty; // Direct global state access
   return <div>{data}</div>;
 });
 ```
 
-## 项目架构修复记录
+### Core MobX Rules
+1. **Global State First**: Access state directly from global stores, never pass through props
+2. **Observer Wrapper**: ALL components using MobX state MUST use `observer` HOC
+3. **Computed Properties**: Use `computed` for derived data to optimize performance
+4. **Avoid Redundant APIs**: Get data directly from state, don't make unnecessary network requests
 
-### Langfuse 集成修复 (2025-01-02)
-**问题**: AIService 中 `getAITelemetryConfig` 函数未定义，导致编译错误
+## Critical Integration Points
 
-**解决方案**:
-1. 在 `shared/lib/src/langfuse.ts` 中添加缺失的导出函数：
-   - `getAITelemetryConfig` - 返回遥测配置
-   - `shutdownLangfuse` - 优雅关闭函数
-   - `langfuse` 对象 - 模拟 langfuse 客户端
+### Langfuse Telemetry
+- Located in `shared/lib/src/langfuse.ts`
+- Key exports: `getAITelemetryConfig`, `shutdownLangfuse`, `langfuse` object
+- Browser-safe implementation (no-op flush in frontend)
 
-2. 修复类型导入：在 `AIService.ts` 中添加 `PersonalityType` 类型导入
+### AI Service Architecture
+- `AIService` class handles all AI interactions
+- Personality system via `PersonalityFactory`
+- Each player has configurable personality affecting decisions
+- Zod schemas validate AI responses (see `shared/types/src/schemas.ts`)
 
-**关键代码**:
-```typescript
-// langfuse.ts 关键函数
-export function getAITelemetryConfig(gameId: string, playerName: string, traceId: string, functionId: string) {
-  return withLangfuseErrorHandling(() => ({
-    isEnabled: true,
-    metadata: { gameId, playerName, traceId, functionId, timestamp: new Date().toISOString() }
-  }), 'getAITelemetryConfig')();
-}
+### Game State Management
+- Frontend: Global `GameMaster` instance in `packages/game-master-vite/src/stores/gameStore.ts`
+- Players maintain local state, receive updates via API
+- State sync through HTTP endpoints, no WebSocket
 
-export const langfuse = {
-  async flushAsync() { console.log('📊 Langfuse flush (no-op in browser mode)'); }
-};
-```
+## UI Components
+- **Game Controls**: Blue create, green start, purple next phase, red end buttons
+- **Player Cards**: Show role icons (🐺🔮🧪👤), alive/dead status
+- **Auto-setup**: "Create New Game" button automatically configures 6 AI players
 
-### 前端 UI 和功能修复 (2025-01-02)
-**问题**: 创建游戏按钮无功能，UI 设计过于简陋，玩家状态显示 0/0
-
-**解决方案**:
-
-#### 1. 修复创建游戏功能
-- 位置: `packages/game-master-vite/src/components/GameControls.tsx`
-- 关键修改: `handleCreateGame` 函数现在会：
-  ```typescript
-  // 创建游戏并添加6个AI玩家
-  await gameMaster.createGame(6);
-  const playerUrls = [
-    { id: 1, url: 'http://localhost:3001' },
-    { id: 2, url: 'http://localhost:3002' },
-    // ... 更多玩家
-  ];
-  for (const player of playerUrls) {
-    await gameMaster.addPlayer(player.id, player.url);
-  }
-  await gameMaster.assignRoles();
-  ```
-
-#### 2. UI 美化升级
-**游戏控制面板**:
-- 添加渐变背景: `bg-gradient-to-br from-white to-gray-50`
-- 彩色按钮设计: 蓝色创建、绿色开始、紫色下一阶段、红色结束
-- 添加表情符号和悬停效果
-
-**玩家列表组件**:
-- 卡片式玩家显示，每个玩家独立卡片
-- 角色图标: 狼人🐺、预言家🔮、女巫🧪、村民👤
-- 存活/死亡状态可视化
-- 渐变状态栏显示游戏信息
-
-#### 3. 类型系统清理
-- 确认 Role 枚举只包含 4 个实际角色: VILLAGER, WEREWOLF, SEER, WITCH
-- 移除不存在的 HUNTER, GUARD 角色引用
-
-### 项目结构说明
-- **前端**: `packages/game-master-vite/` (Vite + React + MobX)
-- **后端**: `packages/player/` (Node.js 玩家服务器)
-- **共享库**: `shared/lib/`, `shared/types/`, `shared/prompts/`
-- **启动脚本**: `scripts/dev-players.sh` (启动6个AI玩家服务器)
-
-### 开发流程
-1. 启动玩家服务器: `./scripts/dev-players.sh`
-2. 启动前端: `cd packages/game-master-vite && bun run dev`
-3. 点击"创建新游戏"按钮自动配置6个AI玩家
-4. 开始游戏进行 AI 狼人杀对战
-```
+## Known Issues & Fixes
+- **Langfuse Integration**: `getAITelemetryConfig` must be exported from `shared/lib/src/langfuse.ts`
+- **Create Game**: Must add players and assign roles after game creation
+- **Type Imports**: Always import `PersonalityType` when using AI services
