@@ -1,0 +1,22 @@
+{
+  "server": {
+    "port": 3001,
+    "host": "0.0.0.0"
+  },
+  "ai": {
+    "model": "anthropic/claude-3-haiku",
+    "maxTokens": 150,
+    "temperature": 0.8,
+    "provider": "openrouter"
+  },
+  "game": {
+    "name": "智能分析师",
+    "personality": "理性分析型玩家，善于逻辑推理，不轻易相信他人但也不会过度怀疑",
+    "strategy": "balanced",
+    "speakingStyle": "casual"
+  },
+  "logging": {
+    "level": "info",
+    "enabled": true
+  }
+}

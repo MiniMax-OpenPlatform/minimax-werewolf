@@ -1,0 +1,22 @@
+{
+  "server": {
+    "port": 3002,
+    "host": "0.0.0.0"
+  },
+  "ai": {
+    "model": "openai/gpt-4",
+    "maxTokens": 200,
+    "temperature": 0.9,
+    "provider": "openrouter"
+  },
+  "game": {
+    "name": "狼王",
+    "personality": "激进型玩家，敢于质疑和攻击，说话直接，逻辑犀利",
+    "strategy": "aggressive",
+    "speakingStyle": "formal"
+  },
+  "logging": {
+    "level": "debug",
+    "enabled": true
+  }
+}

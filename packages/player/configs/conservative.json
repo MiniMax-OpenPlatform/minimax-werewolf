@@ -1,0 +1,22 @@
+{
+  "server": {
+    "port": 3003,
+    "host": "0.0.0.0"
+  },
+  "ai": {
+    "model": "anthropic/claude-3.5-sonnet",
+    "maxTokens": 120,
+    "temperature": 0.6,
+    "provider": "openrouter"
+  },
+  "game": {
+    "name": "守护者",
+    "personality": "保守稳重型玩家，不轻易发言，但每次发言都很有价值，善于观察",
+    "strategy": "conservative",
+    "speakingStyle": "formal"
+  },
+  "logging": {
+    "level": "warn",
+    "enabled": true
+  }
+}

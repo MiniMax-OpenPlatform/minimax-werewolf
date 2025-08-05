@@ -1,0 +1,17 @@
+{
+  "name": "@ai-werewolf/types",
+  "version": "1.0.0",
+  "description": "Shared TypeScript types for AI Werewolf game",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "zod": "*"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}

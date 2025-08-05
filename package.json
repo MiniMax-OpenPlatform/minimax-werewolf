@@ -1,0 +1,79 @@
+{
+  "name": "ai-werewolf-monorepo",
+  "version": "1.0.0",
+  "description": "AI-powered Werewolf game framework monorepo",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "shared/*"
+  ],
+  "overrides": {
+    "ai": "5.0.2",
+    "@ai-sdk/openai": "2.0.2",
+    "zod": "4.0.14"
+  },
+  "scripts": {
+    "build": "bun run --filter '*' build",
+    "dev:game-master": "bun run --filter game-master-vite dev",
+    "dev:players": "bash ./scripts/dev-players.sh",
+    "dev:player": "bun run --filter @ai-werewolf/player dev",
+    "dev:player:config": "bun run --filter @ai-werewolf/player dev:config",
+    "dev:player:default": "bun run --filter @ai-werewolf/player dev:default",
+    "dev:player:aggressive": "bun run --filter @ai-werewolf/player dev:aggressive",
+    "dev:player:conservative": "bun run --filter @ai-werewolf/player dev:conservative",
+    "dev:player:witty": "bun run --filter @ai-werewolf/player dev:witty",
+    "start:game-master": "bun run --filter @ai-werewolf/game-master start",
+    "start:player": "bun run --filter @ai-werewolf/player start",
+    "start:player:config": "bun run --filter @ai-werewolf/player start:config",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:packages": "bun run --filter '*' test",
+    "lint": "bun run --filter '*' lint",
+    "typecheck": "bunx tsc --build",
+    "typecheck:watch": "bunx tsc --build --watch",
+    "typecheck:frontend": "bunx tsc --project packages/game-master-vite/tsconfig.json --noEmit",
+    "typecheck:backend": "bunx tsc --project packages/player/tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.11",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.3",
+    "@types/jest": "^30.0.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "bun-types": "^1.2.19",
+    "cors": "^2.8.5",
+    "eslint": "^8.0.0",
+    "express": "^5.1.0",
+    "jest": "^29.0.0",
+    "ts-jest": "^29.0.0",
+    "typescript": "^5.0.0"
+  },
+  "keywords": [
+    "werewolf",
+    "ai",
+    "game",
+    "framework",
+    "monorepo"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@ai-sdk/openai": "^2.0.2",
+    "@opentelemetry/api-logs": "^0.203.0",
+    "@opentelemetry/auto-instrumentations-node": "^0.62.0",
+    "@opentelemetry/instrumentation": "^0.203.0",
+    "@opentelemetry/sdk-logs": "^0.203.0",
+    "@opentelemetry/sdk-node": "^0.203.0",
+    "@types/figlet": "^1.7.0",
+    "boxen": "^8.0.1",
+    "chalk": "^5.4.1",
+    "figlet": "^1.8.2",
+    "inquirer": "^12.9.0",
+    "langfuse": "^3.38.4",
+    "langfuse-vercel": "^3.38.4",
+    "openai": "^5.12.0",
+    "ora": "^8.2.0"
+  }
+}

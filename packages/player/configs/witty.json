@@ -1,0 +1,22 @@
+{
+  "server": {
+    "port": 3004,
+    "host": "0.0.0.0"
+  },
+  "ai": {
+    "model": "openai/gpt-3.5-turbo",
+    "maxTokens": 180,
+    "temperature": 1.0,
+    "provider": "openrouter"
+  },
+  "game": {
+    "name": "幽默大师",
+    "personality": "风趣幽默的玩家，善于用幽默化解紧张气氛，但关键时刻也很认真",
+    "strategy": "balanced",
+    "speakingStyle": "witty"
+  },
+  "logging": {
+    "level": "info",
+    "enabled": true
+  }
+}
