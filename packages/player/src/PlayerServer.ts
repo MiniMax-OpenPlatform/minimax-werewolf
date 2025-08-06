@@ -267,6 +267,10 @@ export class PlayerServer {
       name: 'openrouter',
       baseURL: 'https://openrouter.ai/api/v1',
       apiKey: this.config.ai.apiKey || process.env.OPENROUTER_API_KEY,
+      headers: {
+        'HTTP-Referer': 'https://mojo.monad.xyz',
+        'X-Title': 'AI Werewolf Game',
+      },
     });
     
     return openrouter.chatModel(this.config.ai.model);
