@@ -51,7 +51,6 @@ export abstract class BasePlayer {
     return this.apiClient.startGame({
       gameId: this.gameId,
       role: this.role,
-      position: this.position,
       playerId: this.id,
       teammates
     });

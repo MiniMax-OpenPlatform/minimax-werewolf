@@ -1,5 +1,6 @@
 import { makeAutoObservable, computed } from 'mobx';
-import { OperationLogSystem, RoleAssignment, SpeechSystem, createGameTrace, initializeLangfuse } from '@ai-werewolf/lib';
+import { OperationLogSystem, RoleAssignment, SpeechSystem } from '@ai-werewolf/lib';
+import { createGameTrace, initializeLangfuse } from './langfuse';
 import { GamePhase, type NightTempState, Role, type PlayerId, type Round, type SeerAbilityResponse, type WerewolfAbilityResponse, WinCondition, type WitchAbilityResponse, type InvestigatedPlayers, type AllVotes, type Vote } from '@ai-werewolf/types';
 import { type Client } from './Client';
 import { type Player, isWerewolfPlayer, isSeerPlayer, isWitchPlayer, createPlayer, type WitchPlayer } from './Player';

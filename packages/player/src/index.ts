@@ -1,7 +1,7 @@
 import 'dotenv/config';
 
 // 初始化 Langfuse OpenTelemetry (必须在其他导入之前)
-import { initializeLangfuse, shutdownLangfuse, langfuse } from '@ai-werewolf/lib';
+import { initializeLangfuse, shutdownLangfuse, langfuse } from './services/langfuse';
 initializeLangfuse();
 
 import express from 'express';
@@ -197,27 +197,6 @@ app.post('/api/player/last-words', async (req, res) => {
     }
   }
 });
-
-// app.post('/api/player/end-game', async (_req, res) => {
-//   try {
-//     console.log('\n=== END GAME REQUEST ===');
-    
-//     await playerServer.endGame();
-    
-//     const response = endGameResponseSchema.parse({ message: 'Game ended successfully' });
-//     console.log('Response:', JSON.stringify(response, null, 2));
-//     console.log('=== END END GAME REQUEST ===\n');
-    
-//     res.json(response);
-//   } catch (error) {
-//     console.error('End game error:', error);
-//     if (error instanceof Error && error.name === 'ZodError') {
-//       res.status(400).json({ error: 'Invalid response data', details: error });
-//     } else {
-//       res.status(500).json({ error: 'Failed to end game' });
-//     }
-//   }
-// });
 
 app.post('/api/player/status', (_req, res) => {
   try {

@@ -34,7 +34,7 @@ export const PlayerList = observer(function PlayerList() {
   };
 
   const gameState = gameMaster.getGameState();
-  
+
   if (!gameMaster.gameId || !gameState) {
     return (
       <Card>
@@ -67,15 +67,15 @@ export const PlayerList = observer(function PlayerList() {
       <CardContent className="space-y-4">
         <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
           {gameState.players.map((player, index) => {
-            
+
             return (
               <div
                 key={player.id ?? `player-${index}`}
                 className={clsx(
                   'rounded-lg border p-2',
                   'flex flex-col items-center gap-1 min-h-[80px]',
-                  player.isAlive 
-                    ? 'bg-card' 
+                  player.isAlive
+                    ? 'bg-card'
                     : 'bg-muted opacity-60'
                 )}
               >
@@ -83,11 +83,11 @@ export const PlayerList = observer(function PlayerList() {
                   'text-xl',
                   player.isAlive ? '' : 'opacity-40'
                 )}>
-                  {player.role === Role.WEREWOLF ? '🐺' : 
-                   player.role === Role.SEER ? '🔮' :
-                   player.role === Role.WITCH ? '🧪' : '👤'}
+                  {player.role === Role.WEREWOLF ? '🐺' :
+                    player.role === Role.SEER ? '🔮' :
+                      player.role === Role.WITCH ? '🧪' : '👤'}
                 </div>
-                
+
                 <div className={clsx(
                   'text-xs text-center',
                   player.isAlive ? 'text-foreground' : 'text-muted-foreground line-through'
@@ -97,39 +97,17 @@ export const PlayerList = observer(function PlayerList() {
                     <span className="text-destructive ml-1">☠️</span>
                   )}
                 </div>
-                
-                <Badge 
+
+                <Badge
                   variant={getRoleVariant(player.role)}
                   className="text-xs"
                 >
                   {getRoleText(player.role)}
                 </Badge>
               </div>
-            )}
+            )
+          }
           )}
-        </div>
-
-        <div className="border rounded-lg p-3 space-y-2">
-          <div className="text-sm text-center space-y-2">
-            <div className="flex items-center justify-center gap-2">
-              <span className="text-muted-foreground">游戏ID:</span>
-              <Badge variant="outline" className="font-mono text-xs">
-                {gameMaster.gameId?.slice(0, 8)}...
-              </Badge>
-            </div>
-            {gameState && (
-              <div className="flex items-center justify-center gap-2">
-                <span className="text-muted-foreground">状态:</span>
-                <Badge variant="secondary" className="text-xs">
-                  {gameState.round === 0 ? '准备中' : '进行中'}
-                </Badge>
-              </div>
-            )}
-            <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground">
-              <span>存活: {gameState.players.filter(p => p.isAlive).length}</span>
-              <span>死亡: {gameState.players.filter(p => !p.isAlive).length}</span>
-            </div>
-          </div>
         </div>
       </CardContent>
     </Card>

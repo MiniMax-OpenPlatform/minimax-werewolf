@@ -10,6 +10,8 @@ node_modules
 dist/
 build/
 .cache/
+*.tsbuildinfo
+tsconfig.tsbuildinfo
 
 # Logs
 logs/

@@ -11,6 +11,7 @@ AI-powered Werewolf game framework - a monorepo implementing an AI-driven multip
 - **Backend**: Node.js/Bun + Express
 - **AI Integration**: OpenAI SDK, Langfuse telemetry
 - **State Management**: MobX with global stores
+- 我用bun，不需要build
 
 ## Critical Development Rules
 - **TypeScript**: NEVER use `any` type - always use proper typing

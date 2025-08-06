@@ -36,12 +36,12 @@ export const GameOperationLog = observer(function GameOperationLog() {
 
   if (!gameMaster.gameId) {
     return (
-      <Card className="h-full">
-        <CardHeader>
-          <CardTitle>📊 游戏操作记录</CardTitle>
+      <Card className="max-h-[800px] flex flex-col">
+        <CardHeader className="flex-shrink-0">
+          <CardTitle className="text-sm">📊 游戏操作记录</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="text-muted-foreground text-center py-8">
+        <CardContent className="flex-1 flex items-center justify-center">
+          <div className="text-muted-foreground text-center py-8 text-sm">
             尚未创建游戏
           </div>
         </CardContent>
@@ -50,12 +50,12 @@ export const GameOperationLog = observer(function GameOperationLog() {
   }
 
   return (
-    <Card className="h-full">
-      <CardHeader>
-        <CardTitle className="border-b pb-2">📊 游戏操作记录</CardTitle>
+    <Card className="max-h-[800px] flex flex-col">
+      <CardHeader className="flex-shrink-0">
+        <CardTitle className="text-sm">📊 游戏操作记录</CardTitle>
       </CardHeader>
-      <CardContent className="p-0">
-        <div className="max-h-[600px] overflow-y-auto">
+      <CardContent className="flex-1 overflow-y-auto p-4 space-y-2 min-h-0">
+        <div>
           {operationLogs.length === 0 ? (
             <div className="text-muted-foreground text-center py-8 text-sm">
               暂无操作记录

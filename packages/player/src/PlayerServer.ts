@@ -6,24 +6,27 @@ import {
   type WitchContext, 
   type SeerContext,
   type PlayerId,
-  type Speech,
   PersonalityType,
-  type GameContext,
   VotingResponseType,
   SpeechResponseType,
   VotingResponseSchema,
-  LastWordsResponseType,
   NightActionResponseType,
   WerewolfNightActionSchema,
   SeerNightActionSchema,
   WitchNightActionSchema,
-  SpeechResponseSchema,
-  LastWordsResponseSchema
+  SpeechResponseSchema
 } from '@ai-werewolf/types';
 import { WerewolfPrompts } from './prompts';
 import { generateObject } from 'ai';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
-import { withLangfuseErrorHandling, getAITelemetryConfig } from '@ai-werewolf/lib';
+import { 
+  getAITelemetryConfig,
+  createGameSession,
+  createPhaseTrace,
+  endPhaseTrace,
+  logEvent,
+  type AITelemetryContext
+} from './services/langfuse';
 import { PlayerConfig } from './config/PlayerConfig';
 
 // 角色到夜间行动 Schema 的映射
@@ -50,13 +53,20 @@ export class PlayerServer {
     this.teammates = params.teammates;
     this.playerId = params.playerId;
     
+    // 创建 Langfuse session
+    createGameSession(this.gameId, {
+      playerId: this.playerId,
+      role: this.role,
+      teammates: this.teammates
+    });
+    
     if (this.config.logging.enabled) {
       console.log(`🎮 ${this.config.game.name} started game ${this.gameId} as ${this.role}`);
       console.log(`👤 Player ID: ${this.playerId}`);
       if (this.teammates && this.teammates.length > 0) {
         console.log(`🤝 Teammates: ${this.teammates.join(', ')}`);
       }
-      console.log(`📊 Game ID (trace): ${this.gameId}`);
+      console.log(`📊 Game ID (session): ${this.gameId}`);
     }
   }
 
@@ -85,16 +95,8 @@ export class PlayerServer {
     return await this.generateAbilityUse(context);
   }
 
-  // TODO: 遗言功能暂时注释，待后续实现
   async lastWords(): Promise<string> {
-    // if (!this.role || !this.config.ai.apiKey) {
-    //   return "很遗憾要离开游戏了，希望好人阵营能够获胜！";
-    // }
-
-    // const lastWordsResponse = await this.generateLastWords();
-    // return lastWordsResponse.content;
-    
-    // 暂时返回默认遗言
+    // 暂时返回默认遗言，后续可实现AI生成
     return "很遗憾要离开游戏了，希望好人阵营能够获胜！";
   }
 
@@ -133,53 +135,66 @@ export class PlayerServer {
     return this.gameId;
   }
 
-  // AI生成方法
-  private async generateSpeech(context: PlayerContext): Promise<SpeechResponseType> {
-    const prompt = this.buildSpeechPrompt(context);
+  // 通用AI生成方法
+  private async generateWithLangfuse<T>(
+    params: {
+      functionId: string;
+      schema: any;  // Zod schema
+      prompt: string;
+      maxOutputTokens?: number;
+      temperature?: number;
+      context?: PlayerContext;  // 使用 PlayerContext 替代 telemetryMetadata
+    }
+  ): Promise<T> {
+    const { functionId, context, schema, prompt, maxOutputTokens, temperature } = params;
     
-    console.log('📝 Speech generation prompt:', prompt);
-    console.log('📋 SpeechResponseSchema:', JSON.stringify(SpeechResponseSchema.shape, null, 2));
+    console.log(`📝 ${functionId} prompt:`, prompt);
+    console.log(`📋 ${functionId} schema:`, JSON.stringify(schema.shape, null, 2));
+    
+    // 获取遥测配置
+    const telemetryConfig = this.getTelemetryConfig(functionId, context);
     
     try {
       const result = await generateObject({
         model: this.getModel(),
-        schema: SpeechResponseSchema,
+        schema: schema,
         prompt: prompt,
-        maxOutputTokens: this.config.ai.maxTokens,
-        temperature: this.config.ai.temperature,
-        experimental_telemetry: this.getTelemetryConfig('speech-generation', { role: this.role, phase: context.currentPhase }),
+        maxOutputTokens: maxOutputTokens || this.config.ai.maxTokens,
+        temperature: temperature ?? this.config.ai.temperature,
+        // 使用 experimental_telemetry（只有在有配置时才传递）
+        ...(telemetryConfig && { experimental_telemetry: telemetryConfig }),
       });
 
-      console.log('🎯 Speech generation result:', JSON.stringify(result.object, null, 2));
-      return result.object as SpeechResponseType;
+      console.log(`🎯 ${functionId} result:`, JSON.stringify(result.object, null, 2));
+      
+      return result.object as T;
     } catch (error) {
-      console.error('AI speech generation failed:', error);
-      throw new Error(`Failed to generate speech: ${error}`);
+      console.error(`AI ${functionId} failed:`, error);
+      throw new Error(`Failed to generate ${functionId}: ${error}`);
     }
+  }
+
+  // AI生成方法
+  private async generateSpeech(context: PlayerContext): Promise<SpeechResponseType> {
+    const prompt = this.buildSpeechPrompt(context);
+    
+    return this.generateWithLangfuse<SpeechResponseType>({
+      functionId: 'speech-generation',
+      schema: SpeechResponseSchema,
+      prompt: prompt,
+      context: context,
+    });
   }
 
   private async generateVote(context: PlayerContext): Promise<VotingResponseType> {
     const prompt = this.buildVotePrompt(context);
     
-    console.log('📝 Vote generation prompt:', prompt);
-    console.log('📋 VotingResponseSchema:', JSON.stringify(VotingResponseSchema.shape, null, 2));
-    
-    try {
-      const result = await generateObject({
-        model: this.getModel(),
-        schema: VotingResponseSchema,
-        prompt: prompt,
-        maxOutputTokens: this.config.ai.maxTokens,
-        temperature: this.config.ai.temperature,
-        experimental_telemetry: this.getTelemetryConfig('vote-generation', { role: this.role }),
-      });
-
-      console.log('🎯 Vote generation result:', JSON.stringify(result.object, null, 2));
-      return result.object as VotingResponseType;
-    } catch (error) {
-      console.error('AI vote generation failed:', error);
-      throw new Error(`Failed to generate vote: ${error}`);
-    }
+    return this.generateWithLangfuse<VotingResponseType>({
+      functionId: 'vote-generation',
+      schema: VotingResponseSchema,
+      prompt: prompt,
+      context: context,
+    });
   }
 
   private async generateAbilityUse(context: PlayerContext | WitchContext | SeerContext): Promise<NightActionResponseType> {
@@ -194,52 +209,13 @@ export class PlayerServer {
 
     const prompt = this.buildAbilityPrompt(context);
     
-    console.log('📝 Ability generation prompt:', prompt);
-    console.log('📋 Night action schema:', JSON.stringify(schema.shape, null, 2));
-    
-    try {
-      const result = await generateObject({
-        model: this.getModel(),
-        schema: schema,
-        prompt: prompt,
-        maxOutputTokens: this.config.ai.maxTokens,
-        temperature: this.config.ai.temperature,
-        experimental_telemetry: this.getTelemetryConfig('ability-generation', { role: this.role, phase: context.currentPhase }),
-      });
-
-      console.log('🎯 Ability generation result:', JSON.stringify(result.object, null, 2));
-      return result.object as NightActionResponseType;
-    } catch (error) {
-      console.error('AI ability generation failed:', error);
-      throw new Error(`Failed to generate ability use: ${error}`);
-    }
+    return this.generateWithLangfuse<NightActionResponseType>({
+      functionId: 'ability-generation',
+      schema: schema,
+      prompt: prompt,
+      context: context,
+    });
   }
-
-  // TODO: 遗言功能暂时注释，待后续实现
-  // private async generateLastWords(): Promise<LastWordsResponseType> {
-  //   const prompt = this.buildLastWordsPrompt();
-  //   
-  //   console.log('📝 Last words generation prompt:', prompt);
-  //   console.log('📋 LastWordsResponseSchema:', JSON.stringify(LastWordsResponseSchema.shape, null, 2));
-  //   
-  //   try {
-  //     const { object } = await generateObject({
-  //       model: this.getModel(),
-  //       schema: LastWordsResponseSchema,
-  //       prompt: prompt,
-  //       mode: 'json',
-  //       maxTokens: this.config.ai.maxTokens,
-  //       temperature: 0.9, // 遗言可以更有情感
-  //       experimental_telemetry: this.getTelemetryConfig('last-words-generation', { role: this.role }),
-  //     });
-
-  //     console.log('🎯 Last words generation result:', JSON.stringify(object, null, 2));
-  //     return object;
-  //   } catch (error) {
-  //     console.error('AI last words generation failed:', error);
-  //     throw new Error(`Failed to generate last words: ${error}`);
-  //   }
-  // }
 
   // Prompt构建方法
   private buildSpeechPrompt(context: PlayerContext): string {
@@ -252,13 +228,6 @@ export class PlayerServer {
   }
 
   private buildVotePrompt(context: PlayerContext): string {
-    const votingParams = {
-      playerId: this.playerId!,
-      role: this.mapRoleToString(this.role!),
-      speechSummary: this.buildSpeechHistory(context),
-      currentVotes: context.allVotes,
-    };
-
     const personalityPrompt = this.buildPersonalityPrompt();
 
     const additionalParams = {
@@ -287,58 +256,10 @@ export class PlayerServer {
   }
 
   private buildAbilityPrompt(context: PlayerContext | WitchContext | SeerContext): string {
-    const personalityPrompt = this.buildPersonalityPrompt();
-    
-    const nightParams = {
-      playerId: this.playerId!,
-      role: this.role!,
-      alivePlayers: context.alivePlayers,
-      currentRound: context.round,
-      historyEvents: ['夜间行动阶段'],
-      customContent: personalityPrompt,
-      teammates: this.teammates
-    };
-    
-    let additionalParams: Record<string, unknown> = {};
-    if (this.role === Role.WITCH && 'killedTonight' in context) {
-      additionalParams = {
-        killedTonight: context.killedTonight,
-        potionUsed: context.potionUsed
-      };
-    }
-    
     const nightPrompt = WerewolfPrompts.getNightAction(this, context);
     
     return nightPrompt;
   }
-
-  // TODO: 遗言功能暂时注释，待后续实现
-  // private buildLastWordsPrompt(): string {
-  //   const personalityPrompt = this.buildPersonalityPrompt();
-
-  //   const lastWordsParams = {
-  //     playerId: this.playerId!,
-  //     playerName: this.config.game.name,
-  //     role: this.mapRoleToString(this.role!),
-  //     killedBy: 'vote' as const,
-  //     alivePlayers: [],
-  //     importantInfo: this.teammates ? `队友：${this.teammates.join('、')}` : undefined,
-  //     customContent: personalityPrompt
-  //   };
-
-  //   // 创建一个简单的 context 给 getLastWords 使用
-  //   const lastWordsContext: PlayerContext = {
-  //     round: 0,
-  //     currentPhase: GamePhase.VOTING,
-  //     alivePlayers: [],
-  //     allSpeeches: {},
-  //     allVotes: {}
-  //   };
-  //   
-  //   const lastWordsPrompt = WerewolfPrompts.getLastWords(this, lastWordsContext);
-
-  //   return lastWordsPrompt + '\n\n注意：遗言内容控制在30-80字，语言有情感，像真实玩家。';
-  // }
 
   // 辅助方法
   private getModel() {
@@ -351,52 +272,22 @@ export class PlayerServer {
     return openrouter.chatModel(this.config.ai.model);
   }
 
-  private getTelemetryConfig(functionId: string, _metadata: any = {}) {
-    return withLangfuseErrorHandling(() => {
-      if (!this.gameId) {
-        return { isEnabled: false };
-      }
-      
-      return getAITelemetryConfig(
-        this.gameId,
-        this.config.game.name || 'unknown-player',
-        this.gameId,
-        functionId,
-      );
-    })() || { isEnabled: false };
-  }
-
-  private mapRoleToString(role: Role): string {
-    switch (role) {
-      case Role.WEREWOLF:
-        return '狼人';
-      case Role.VILLAGER:
-        return '村民';
-      case Role.SEER:
-        return '预言家';
-      case Role.WITCH:
-        return '女巫';
-      default:
-        return '未知角色';
-    }
-  }
-
-  private buildSpeechHistory(context: PlayerContext): Speech[] {
-    if (!context.allSpeeches) {
-      return [];
+  private getTelemetryConfig(
+    functionId: string,
+    context?: PlayerContext
+  ) {
+    if (!this.gameId || !this.playerId) {
+      return false;
     }
     
-    const speeches: Speech[] = [];
+    const telemetryContext: AITelemetryContext = {
+      gameId: this.gameId,
+      playerId: this.playerId,
+      functionId,
+      context,
+    };
     
-    for (const [, playerSpeeches] of Object.entries(context.allSpeeches)) {
-      for (const [, speech] of Object.entries(playerSpeeches)) {
-        if (speech && speech.type === 'player') {
-          speeches.push(speech);
-        }
-      }
-    }
-    
-    return speeches;
+    return getAITelemetryConfig(telemetryContext);
   }
 
   private buildPersonalityPrompt(): string {

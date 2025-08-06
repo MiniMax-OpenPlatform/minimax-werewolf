@@ -6,7 +6,7 @@ function App() {
   return (
     <div className="min-h-screen bg-background">
       <header className="bg-gradient-to-r from-primary/10 via-primary/5 to-primary/10 backdrop-blur-sm border-b border-border sticky top-0 z-10">
-        <div className="py-8">
+        <div className="py-6">
           <div className="flex items-center justify-center space-x-4">
             <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center shadow-lg">
               <span className="text-2xl">🎮</span>

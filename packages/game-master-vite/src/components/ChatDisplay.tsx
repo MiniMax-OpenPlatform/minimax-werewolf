@@ -1,6 +1,5 @@
 'use client';
 
-import { useRef } from 'react';
 import { observer } from 'mobx-react-lite';
 import { format } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,9 +9,6 @@ import { Role } from '@ai-werewolf/types';
 import { gameMaster } from '@/stores/gameStore';
 
 export const ChatDisplay = observer(function ChatDisplay() {
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-
-
   const gameState = gameMaster.getGameState();
   const speechesData = gameMaster.getSpeeches();
   
@@ -53,12 +49,12 @@ export const ChatDisplay = observer(function ChatDisplay() {
 
   if (!gameState && speeches.length === 0) {
     return (
-      <Card className="h-[600px] flex flex-col">
-        <CardHeader >
-          <CardTitle className='text-xl font-semibold'>玩家对话记录</CardTitle>
+      <Card className="max-h-[800px] flex flex-col">
+        <CardHeader className="flex-shrink-0">
+          <CardTitle className='text-sm'>玩家对话记录</CardTitle>
         </CardHeader>
         <CardContent className="flex-1 flex items-center justify-center">
-          <div className="text-muted-foreground">
+          <div className="text-muted-foreground text-sm">
             等待游戏开始...
           </div>
         </CardContent>
@@ -67,14 +63,14 @@ export const ChatDisplay = observer(function ChatDisplay() {
   }
 
   return (
-    <Card className="h-[600px] flex flex-col">
-      <CardHeader >
-        <CardTitle className='text-xl font-semibold'>玩家对话记录</CardTitle>
+    <Card className="max-h-[800px] flex flex-col">
+      <CardHeader className="flex-shrink-0">
+        <CardTitle className='text-sm'>玩家对话记录</CardTitle>
       </CardHeader>
         
-      <CardContent className="flex-1 overflow-y-auto p-4 space-y-2 bg-muted/30">
+      <CardContent className="flex-1 overflow-y-auto p-4 space-y-2 min-h-0">
         {speeches.length === 0 ? (
-          <div className="text-muted-foreground text-center py-8">
+          <div className="text-muted-foreground text-center py-8 text-sm">
             暂无发言记录
           </div>
         ) : (
@@ -82,6 +78,7 @@ export const ChatDisplay = observer(function ChatDisplay() {
             .map((speech, index) => {
               const role = getPlayerRole(speech.playerId);
               const messageStyle = getMessageStyle();
+              console.log('ChatDisplay111 - speech:', speech);
               
               return (
                 <div
@@ -131,7 +128,6 @@ export const ChatDisplay = observer(function ChatDisplay() {
               );
             })
         )}
-        <div ref={messagesEndRef} />
       </CardContent>
     </Card>
   );
