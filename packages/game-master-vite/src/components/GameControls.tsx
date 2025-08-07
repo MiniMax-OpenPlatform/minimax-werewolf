@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { gameMaster } from '@/stores/gameStore';
+import { getPlayerUrls } from '@/lib/playerConfig';
 
 export const GameControls = observer(function GameControls() {
   const [isLoading, setIsLoading] = useState(false);
@@ -14,21 +15,15 @@ export const GameControls = observer(function GameControls() {
   const handleCreateGame = async () => {
     setIsLoading(true);
     try {
-      // 创建游戏并添加6个玩家
-      await gameMaster.createGame(6);
+      // 获取玩家URL列表
+      const playerUrls = getPlayerUrls();
       
-      // 添加6个AI玩家
-      const playerUrls = [
-        { id: 1, url: 'http://localhost:3001' },
-        { id: 2, url: 'http://localhost:3002' },
-        { id: 3, url: 'http://localhost:3003' },
-        { id: 4, url: 'http://localhost:3004' },
-        { id: 5, url: 'http://localhost:3005' },
-        { id: 6, url: 'http://localhost:3006' }
-      ];
+      // 创建游戏
+      await gameMaster.createGame(playerUrls.length);
       
-      for (const player of playerUrls) {
-        await gameMaster.addPlayer(player.id, player.url);
+      // 添加AI玩家，ID从1开始
+      for (let i = 0; i < playerUrls.length; i++) {
+        await gameMaster.addPlayer(i + 1, playerUrls[i]);
       }
       
       // 分配角色

@@ -71,7 +71,7 @@ declare -a PLAYERS=(
 # 启动每个玩家
 for player_info in "${PLAYERS[@]}"; do
     IFS=':' read -r config_name player_name port <<< "$player_info"
-    config_file="config/${config_name}.json"
+    config_file="config/${config_name}.yaml"
     log_file="$LOG_DIR/${config_name}-dev.log"
     
     echo "   启动 $player_name (端口: $port)"

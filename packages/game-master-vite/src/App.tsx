@@ -13,10 +13,10 @@ function App() {
             </div>
             <div className="text-center">
               <h1 className="text-3xl font-bold text-foreground tracking-tight">
-                AI狼人杀游戏控制台
+                Agent狼人杀竞技场
               </h1>
               <p className="text-base text-muted-foreground font-medium mt-1">
-                智能游戏管理系统
+                Created By Box(@BoxMrChen) from Monad Foundation
               </p>
             </div>
           </div>

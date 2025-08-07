@@ -11,10 +11,12 @@
         "@opentelemetry/sdk-logs": "^0.203.0",
         "@opentelemetry/sdk-node": "^0.203.0",
         "@types/figlet": "^1.7.0",
+        "@types/js-yaml": "^4.0.9",
         "boxen": "^8.0.1",
         "chalk": "^5.4.1",
         "figlet": "^1.8.2",
         "inquirer": "^12.9.0",
+        "js-yaml": "^4.1.0",
         "langfuse": "^3.38.4",
         "langfuse-vercel": "^3.38.4",
         "openai": "^5.12.0",
@@ -766,6 +768,8 @@
     "@types/istanbul-reports": ["@types/istanbul-reports@3.0.4", "", { "dependencies": { "@types/istanbul-lib-report": "*" } }, "sha512-pk2B1NWalF9toCRu6gjBzR69syFjP4Od8WRAX+0mmf9lAjCRicLOWc+ZrxZHx/0XRjotgkF9t6iaMJ+aXcOdZQ=="],
 
     "@types/jest": ["@types/jest@30.0.0", "", { "dependencies": { "expect": "^30.0.0", "pretty-format": "^30.0.0" } }, "sha512-XTYugzhuwqWjws0CVz8QpM36+T+Dz5mTEBKhNs/esGLnCIlGdRy+Dq78NRjd7ls7r8BC8ZRMOrKlkO1hU0JOwA=="],
+
+    "@types/js-yaml": ["@types/js-yaml@4.0.9", "", {}, "sha512-k4MGaQl5TGo/iipqb2UDG2UwjXziSWkh0uysQelTlJpX1qGlpUZYm8PnO4DxG1qBomtJUdYJ6qR6xdIah10JLg=="],
 
     "@types/json-schema": ["@types/json-schema@7.0.15", "", {}, "sha512-5+fP8P8MFNC+AyZCDxrB2pkZFPGzqQWUzpSeuuVLvm8VMcorNYavBqoFcxK8bQz4Qsbn4oUEEem4wDLfcysGHA=="],
 
