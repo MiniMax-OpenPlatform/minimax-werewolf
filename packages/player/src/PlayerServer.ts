@@ -61,7 +61,7 @@ export class PlayerServer {
     });
     
     if (this.config.logging.enabled) {
-      console.log(`🎮 ${this.config.game.name} started game ${this.gameId} as ${this.role}`);
+      console.log(`🎮 Player started game ${this.gameId} as ${this.role}`);
       console.log(`👤 Player ID: ${this.playerId}`);
       if (this.teammates && this.teammates.length > 0) {
         console.log(`🤝 Teammates: ${this.teammates.join(', ')}`);
@@ -108,7 +108,6 @@ export class PlayerServer {
       teammates: this.teammates,
       isAlive: true,
       config: {
-        name: this.config.game.name,
         personality: this.config.game.personality
       }
     };

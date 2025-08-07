@@ -214,7 +214,7 @@ app.post('/api/player/status', (_req, res) => {
 });
 
 app.listen(port, host, () => {
-  console.log(`🚀 ${config.game.name} player server running on ${host}:${port}`);
+  console.log(`🚀 Player server running on ${host}:${port}`);
   if (configPath) {
     console.log(`📋 使用配置文件: ${configPath}`);
   }
