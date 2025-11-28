@@ -45,6 +45,7 @@ export class PlayerServer {
   private config: PlayerConfig;
   private thinkingHistory: string[] = []; // 存储玩家的内心独白历史
   private runtimeApiKey?: string; // 运行时设置的 API key
+  private customRules?: string; // 运行时设置的自定义游戏规则
 
   constructor(config: PlayerConfig) {
     this.config = config;
@@ -53,6 +54,11 @@ export class PlayerServer {
   setApiKey(apiKey: string): void {
     this.runtimeApiKey = apiKey;
     console.log('🔑 Runtime API key has been set');
+  }
+
+  setCustomRules(rules: string): void {
+    this.customRules = rules;
+    console.log('📜 Custom game rules have been set');
   }
 
   async startGame(params: StartGameParams): Promise<void> {
@@ -194,10 +200,13 @@ export class PlayerServer {
     const telemetryConfig = this.getTelemetryConfig(functionId, context);
 
     try {
+      // 使用自定义规则或默认规则
+      const gameRules = this.customRules || GAME_RULES_TEXT;
+
       // 使用generateText获取原始响应，然后手动解析
       const result = await generateText({
         model: this.getModel(),
-        system: GAME_RULES_TEXT,
+        system: gameRules,
         prompt: prompt + '\n\n请直接返回JSON格式的结果，不要包含其他说明文字。',
         temperature: temperature ?? this.config.ai.temperature,
         // 使用 experimental_telemetry（只有在有配置时才传递）

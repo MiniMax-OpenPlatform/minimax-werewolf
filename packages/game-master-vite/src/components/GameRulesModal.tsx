@@ -374,10 +374,10 @@ export const GameRulesModal = observer(function GameRulesModal({ isOpen, onClose
             {/* 底部说明 */}
             <div className="border-t pt-4 mt-6">
               <p className="text-xs text-muted-foreground">
-                💡 提示：这里展示的是游戏规则说明文档，您可以自定义编辑并保存到浏览器本地存储，方便查阅。
+                💡 提示：您可以自定义编辑游戏规则并保存到浏览器本地存储。
               </p>
-              <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
-                ⚠️ 注意：修改此处规则仅影响文档展示，不会改变实际游戏逻辑。游戏规则由后端代码控制。
+              <p className="text-xs text-green-600 dark:text-green-400 mt-2">
+                ✅ 修改后的规则会在创建新游戏时自动应用到 AI 行为（作为 System Prompt）。
               </p>
             </div>
           </CardContent>

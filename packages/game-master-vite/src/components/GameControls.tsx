@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { observer } from 'mobx-react-lite';
-import { GamePhase } from '@ai-werewolf/types';
+import { GamePhase, DEFAULT_GAME_RULES, generateGameRulesText, type GameRules } from '@ai-werewolf/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -42,11 +42,28 @@ export const GameControls = observer(function GameControls() {
       // 获取玩家URL列表
       const playerUrls = getPlayerUrls();
 
-      // 为每个玩家服务器设置 API key
-      console.log('🔑 Setting API key for all player servers...');
+      // 读取自定义游戏规则
+      let customRulesText: string | null = null;
+      try {
+        const savedRules = localStorage.getItem('gameRules');
+        if (savedRules) {
+          const rulesObj: GameRules = JSON.parse(savedRules);
+          customRulesText = generateGameRulesText(rulesObj);
+          console.log('📜 Using custom game rules from localStorage');
+        } else {
+          console.log('📜 Using default game rules');
+        }
+      } catch (error) {
+        console.error('❌ Failed to load custom rules:', error);
+        console.log('📜 Falling back to default game rules');
+      }
+
+      // 为每个玩家服务器设置 API key 和自定义规则
+      console.log('🔑 Setting API key and custom rules for all player servers...');
       for (let i = 0; i < playerUrls.length; i++) {
         try {
-          const response = await fetch(`${playerUrls[i]}/api/player/set-api-key`, {
+          // 设置 API key
+          const apiKeyResponse = await fetch(`${playerUrls[i]}/api/player/set-api-key`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -54,13 +71,29 @@ export const GameControls = observer(function GameControls() {
             body: JSON.stringify({ apiKey: apiKey.trim() })
           });
 
-          if (!response.ok) {
+          if (!apiKeyResponse.ok) {
             throw new Error(`Failed to set API key for player ${i + 1}`);
           }
           console.log(`✅ API key set for player ${i + 1}`);
+
+          // 设置自定义规则（如果有）
+          if (customRulesText) {
+            const rulesResponse = await fetch(`${playerUrls[i]}/api/player/set-rules`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ rules: customRulesText })
+            });
+
+            if (!rulesResponse.ok) {
+              throw new Error(`Failed to set custom rules for player ${i + 1}`);
+            }
+            console.log(`✅ Custom rules set for player ${i + 1}`);
+          }
         } catch (error) {
-          console.error(`❌ Failed to set API key for player ${i + 1}:`, error);
-          alert(`无法为玩家${i + 1}设置API Key，请检查服务器是否运行正常`);
+          console.error(`❌ Failed to configure player ${i + 1}:`, error);
+          alert(`无法为玩家${i + 1}配置设置，请检查服务器是否运行正常`);
           return;
         }
       }

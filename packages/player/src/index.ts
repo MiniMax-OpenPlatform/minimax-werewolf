@@ -92,6 +92,31 @@ app.post('/api/player/set-api-key', async (req, res) => {
   }
 });
 
+app.post('/api/player/set-rules', async (req, res) => {
+  try {
+    console.log('\n=== SET CUSTOM RULES REQUEST ===');
+    const { rules } = req.body;
+
+    if (!rules || typeof rules !== 'string') {
+      return res.status(400).json({ error: 'Invalid rules' });
+    }
+
+    playerServer.setCustomRules(rules);
+
+    const response = {
+      message: 'Custom rules set successfully'
+    };
+
+    console.log('Response:', JSON.stringify(response, null, 2));
+    console.log('=== END SET CUSTOM RULES REQUEST ===\n');
+
+    res.json(response);
+  } catch (error) {
+    console.error('Set custom rules error:', error);
+    res.status(500).json({ error: 'Failed to set custom rules' });
+  }
+});
+
 app.post('/api/player/start-game', async (req, res) => {
   try {
     console.log('\n=== START GAME REQUEST ===');
