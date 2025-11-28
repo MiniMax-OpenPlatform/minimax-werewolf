@@ -14,7 +14,7 @@ function App() {
         <div className="py-6">
           <div className="text-center">
             <h1 className="text-3xl font-bold text-foreground tracking-tight">
-              MiniMax狼人杀
+              MiniMax狼人杀demo
             </h1>
           </div>
 
