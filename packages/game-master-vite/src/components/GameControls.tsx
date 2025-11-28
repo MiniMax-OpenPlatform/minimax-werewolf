@@ -168,7 +168,7 @@ export const GameControls = observer(function GameControls() {
           <Button
             onClick={() => setShowApiKeyConfig(!showApiKeyConfig)}
             disabled={gameMaster.gameId !== null && gameMaster.players.length > 0}
-            variant="outline"
+            variant="default"
             size="sm"
           >
             🔑 {showApiKeyConfig ? '隐藏' : '配置'}API Key
@@ -177,7 +177,7 @@ export const GameControls = observer(function GameControls() {
           <Button
             onClick={() => setShowPersonalityConfig(!showPersonalityConfig)}
             disabled={gameMaster.gameId !== null && gameMaster.players.length > 0}
-            variant="outline"
+            variant="default"
             size="sm"
           >
             👤 {showPersonalityConfig ? '隐藏' : '配置'}玩家性格
@@ -205,16 +205,15 @@ export const GameControls = observer(function GameControls() {
             onClick={handleNextPhase}
             disabled={isLoading || !canAdvance}
             variant="default"
-            size="default"
-            className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-200"
+            size="sm"
           >
-            {isLoading && canAdvance ? '⏳ 切换中...' : '▶️ 下一阶段'}
+            {isLoading && canAdvance ? '切换中...' : '下一阶段'}
           </Button>
 
           <Button
             onClick={handleEndGame}
             disabled={isLoading || !canEnd}
-            variant="destructive"
+            variant="default"
             size="sm"
           >
             结束游戏
@@ -222,7 +221,7 @@ export const GameControls = observer(function GameControls() {
 
           <Button
             onClick={() => setShowRules(true)}
-            variant="outline"
+            variant="default"
             size="sm"
           >
             📖 游戏规则
