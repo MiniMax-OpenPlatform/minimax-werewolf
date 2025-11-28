@@ -160,7 +160,7 @@ export const GameControls = observer(function GameControls() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          🎮 游戏控制
+          游戏控制
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -226,15 +226,6 @@ export const GameControls = observer(function GameControls() {
           >
             游戏规则
           </Button>
-
-          {gameMaster.gameId && (
-            <div className="ml-auto flex items-center space-x-2">
-              <span className="text-muted-foreground">游戏ID:</span>
-              <Badge variant="outline" className="font-mono text-xs">
-                {gameMaster.gameId}
-              </Badge>
-            </div>
-          )}
         </div>
 
         {gameState && (

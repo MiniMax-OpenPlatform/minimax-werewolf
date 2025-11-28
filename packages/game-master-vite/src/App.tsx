@@ -24,13 +24,13 @@ function App() {
               onClick={() => setActiveView('game')}
               variant={activeView === 'game' ? 'default' : 'outline'}
             >
-              🎮 游戏控制台
+              游戏控制台
             </Button>
             <Button
               onClick={() => setActiveView('history')}
               variant={activeView === 'history' ? 'default' : 'outline'}
             >
-              📜 历史记录
+              历史记录
             </Button>
           </div>
         </div>
