@@ -374,7 +374,7 @@ export const GameRulesModal = observer(function GameRulesModal({ isOpen, onClose
             {/* 底部说明 */}
             <div className="border-t pt-4 mt-6">
               <p className="text-xs text-muted-foreground">
-                💡 提示：修改规则后点击"保存"按钮保存到浏览器本地存储。规则修改仅影响UI显示，不会自动应用到游戏逻辑中。
+                💡 提示：这里展示的是游戏规则说明文档，您可以自定义编辑并保存到浏览器本地存储，方便查阅。
               </p>
             </div>
           </CardContent>
