@@ -52,7 +52,7 @@ export function getVillagerSpeech(playerServer: PlayerServer, context: PlayerCon
   
   const customContent = params.customContent || '';
   
-  return `你是${params.playerId}号玩家，狼人杀游戏中的村民角色，性格特点：正直、逻辑清晰。当前游戏状态：
+  return `你是${params.playerId}号玩家，狼人杀游戏中的村民角色。当前游戏状态：
 - 存活玩家: [${playerList}]
 - 当前发言轮次: 第${context.round}轮
 - 历史发言摘要: ${speechSummary}
@@ -66,8 +66,7 @@ ${customContent}
 
 当前局势分析：
 - 可疑玩家: ${suspiciousInfo}
-- 逻辑矛盾点: ${params.logicalContradictions || '暂无明显矛盾'}
-${getSpeechFormatInstruction(Role.VILLAGER)}`;
+- 逻辑矛盾点: ${params.logicalContradictions || '暂无明显矛盾'}`;
 }
 
 export function getWerewolfSpeech(playerServer: PlayerServer, context: PlayerContext): string {
@@ -77,6 +76,11 @@ export function getWerewolfSpeech(playerServer: PlayerServer, context: PlayerCon
   }
   const teammateIds = playerServer.getTeammates();
   const personalityPrompt = playerServer.getPersonalityPrompt();
+
+  // 获取狼人的lastKillTarget
+  const werewolfContext = context as any;  // 临时类型转换，因为可能是WerewolfContext
+  const lastKillTarget = werewolfContext.lastKillTarget;
+
   const params = {
     playerId: playerId.toString(),
     playerName: `Player${playerId}`,
@@ -85,20 +89,20 @@ export function getWerewolfSpeech(playerServer: PlayerServer, context: PlayerCon
     teammates: teammateIds?.map(id => id.toString()),
     customContent: personalityPrompt,
     suspiciousPlayers: [] as string[],
-    killedLastNight: 'unknown'
+    killedLastNight: lastKillTarget ? lastKillTarget.toString() : '未知'
   };
   const playerList = formatPlayerList(context.alivePlayers);
   const speechSummary = formatSpeechHistory(params.speechHistory);
   const teammateList = params.teammates?.join('、') || '暂无队友信息';
-  const killedInfo = params.killedLastNight || '无人被杀';
+  const killedInfo = params.killedLastNight ? `${params.killedLastNight}号` : '未知（可能被女巫救了）';
   
   const customContent = params.customContent || '';
   
-  return `你是${params.playerId}号玩家，狼人杀游戏中的狼人角色，性格特点：狡猾、善于伪装。当前游戏状态：
+  return `你是${params.playerId}号玩家，狼人杀游戏中的狼人角色。当前游戏状态：
 - 存活玩家: [${playerList}]
 - 当前发言轮次: 第${context.round}轮
 - 历史发言摘要: ${speechSummary}
-- 你的狼人队友: [${teammateList}]
+- 本局游戏狼人编号: [${teammateList}]
 
 ${customContent}
 
@@ -110,10 +114,8 @@ ${customContent}
 5. 考虑自爆策略（如必要）
 
 当前局势分析：
-- 今晚被杀的玩家: ${killedInfo}
-- 当前投票情况: ${speechSummary}
-- 需要重点关注的玩家: ${params.suspiciousPlayers?.join('、') || '暂无'}
-${getSpeechFormatInstruction(Role.WEREWOLF)}`;
+- 昨晚狼人试图杀害的玩家: ${killedInfo}
+- 需要重点关注的玩家: ${params.suspiciousPlayers?.join('、') || '暂无'}`;
 }
 
 export function getSeerSpeech(playerServer: PlayerServer, context: SeerContext): string {
@@ -146,7 +148,7 @@ export function getSeerSpeech(playerServer: PlayerServer, context: SeerContext):
   
   const customContent = params.customContent || '';
   
-  return `你是${params.playerId}号玩家，狼人杀游戏中的预言家角色，性格特点：理性、分析能力强。当前游戏状态：
+  return `你是${params.playerId}号玩家，狼人杀游戏中的预言家角色。当前游戏状态：
 - 存活玩家: [${playerList}]
 - 当前发言轮次: 第${context.round}轮
 - 历史发言摘要: ${speechSummary}
@@ -162,8 +164,7 @@ ${customContent}
 
 当前局势分析：
 - 可疑玩家: ${params.suspiciousPlayers?.join('、') || '根据查验结果确定'}
-- 需要保护的玩家: 暂无
-${getSpeechFormatInstruction(Role.SEER)}`;
+- 需要保护的玩家: 暂无`;
 }
 
 export function getWitchSpeech(playerServer: PlayerServer, context: WitchContext): string {
@@ -189,7 +190,7 @@ export function getWitchSpeech(playerServer: PlayerServer, context: WitchContext
   
   const customContent = params.customContent || '';
   
-  return `你是${params.playerId}号玩家，狼人杀游戏中的女巫角色，性格特点：谨慎、观察力强。当前游戏状态：
+  return `你是${params.playerId}号玩家，狼人杀游戏中的女巫角色。当前游戏状态：
 - 存活玩家: [${playerList}]
 - 当前发言轮次: 第${context.round}轮
 - 历史发言摘要: ${speechSummary}
@@ -206,8 +207,7 @@ ${customContent}
 当前局势分析：
 - 今晚被杀的玩家: ${killedInfo}（你${context.potionUsed?.heal ? '已救' : '未救'}）
 - 是否使用毒药: ${context.potionUsed?.poison ? '已使用' : '未使用'}
-- 可疑玩家: ${params.suspiciousPlayers?.join('、') || '暂无明确目标'}
-${getSpeechFormatInstruction(Role.WITCH)}`;
+- 可疑玩家: ${params.suspiciousPlayers?.join('、') || '暂无明确目标'}`;
 }
 
 

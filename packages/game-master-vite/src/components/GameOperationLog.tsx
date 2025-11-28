@@ -85,6 +85,14 @@ export const GameOperationLog = observer(function GameOperationLog() {
                             <span>{log.details.result}</span>
                           </div>
                         )}
+                        {log.details && log.details.traceId && (
+                          <div className="mt-1 flex items-center gap-1">
+                            <span className="text-xs text-blue-600 dark:text-blue-400">🔖 Trace-ID:</span>
+                            <code className="text-xs bg-blue-50 dark:bg-blue-950/20 px-1.5 py-0.5 rounded font-mono text-blue-600 dark:text-blue-400">
+                              {log.details.traceId}
+                            </code>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>

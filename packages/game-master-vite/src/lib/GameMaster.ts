@@ -2,6 +2,7 @@ import { makeAutoObservable, computed } from 'mobx';
 import { OperationLogSystem, RoleAssignment, SpeechSystem } from '@ai-werewolf/lib';
 import { createGameTrace, initializeLangfuse } from './langfuse';
 import { GamePhase, type NightTempState, Role, type PlayerId, type Round, type SeerAbilityResponse, type WerewolfAbilityResponse, WinCondition, type WitchAbilityResponse, type InvestigatedPlayers, type AllVotes, type Vote } from '@ai-werewolf/types';
+import type { GameLog, GameLogPlayerInfo } from '@ai-werewolf/types';
 import { type Client } from './Client';
 import { type Player, isWerewolfPlayer, isSeerPlayer, isWitchPlayer, createPlayer, type WitchPlayer } from './Player';
 import { PlayerAPIClient } from './PlayerAPIClient';
@@ -15,10 +16,12 @@ export class GameMaster {
   public votes: Record<number, number> = {};
   public nightTemp: NightTempState = {};
   public seerResult:InvestigatedPlayers = {}
+  public lastWerewolfKill: number | undefined = undefined;  // 记录上次狼人击杀的目标
 
   public speechSystem: SpeechSystem = new SpeechSystem();
   public operationLogSystem: OperationLogSystem = new OperationLogSystem();
   public allVotes: AllVotes = {};
+  private gameLog: GameLog | null = null;
 
   constructor(gameId: string, playerCount?: number) {
     this.gameId = gameId;
@@ -54,7 +57,8 @@ export class GameMaster {
       players: this.players.map(p => ({
         id: p.id,
         isAlive: p.isAlive,
-        role: p.role
+        role: p.role,
+        personality: p.personality
       }))
     };
   }
@@ -82,6 +86,7 @@ export class GameMaster {
   private processWerewolfAction(result: WerewolfAbilityResponse): void {
     if(result.action == 'idle') return
     this.nightTemp.werewolfTarget = result.target;
+    this.lastWerewolfKill = result.target;  // 记录狼人击杀目标，供后续白天发言使用
     console.log(`🎯 Werewolf target: ${result.target}`);
   }
 
@@ -222,13 +227,11 @@ export class GameMaster {
         ? this.players.filter(p => p.role === Role.WEREWOLF).map(p => p.id)
         : [];
 
-      const result = await player.startGame(teammates);
-
-      if (result) {
+      try {
+        await player.startGame(teammates);
         console.log(`✅ Successfully notified ${player.id} (${player.role}) at ${url}`);
-        console.log(`   Response:`, result);
-      } else {
-        console.error(`❌ Failed to notify player ${player.id} at ${url}`);
+      } catch (error) {
+        console.error(`❌ Failed to notify player ${player.id} at ${url}`, error);
       }
     }
 
@@ -259,30 +262,42 @@ export class GameMaster {
     // 初始化夜间暂存状态
     this.nightTemp = {};
 
-    const allSpeeches = this.speechSystem.getAllSpeeches();
-    const totalSpeeches = Object.values(allSpeeches).flat().length;
-    console.log(`📊 Available speeches for night ${this.round}: ${totalSpeeches} speeches`);
-
     // 狼人夜间杀人
     const leadWerewolf = this.getAlivePlayerOfType(isWerewolfPlayer);
 
     if (leadWerewolf) {
 
       console.log(`🐺 Asking ${leadWerewolf.id} to choose kill target`);
-      console.log('🔍 About to call logPlayerRequest');
       this.operationLogSystem.logPlayerRequest(leadWerewolf.id, '选择杀害目标');
-      console.log('🔍 logPlayerRequest called');
 
       const result = await leadWerewolf.useAbility(this);
 
       if (result) {
-        console.log(`🐺 Werewolf action result:`, result);
-
-        // 记录狼人行动结果
-        this.operationLogSystem.logPlayerResponse(leadWerewolf.id, '夜间杀害', `行动:${result.action}, 击杀玩家${result.target}。${result.reason}`);
+        // 记录狼人行动结果（包含trace_id）
+        this.operationLogSystem.logPlayerResponse(
+          leadWerewolf.id,
+          '夜间杀害',
+          `行动:${result.action}, 击杀玩家${result.target}。${result.reason}`,
+          result.traceId
+        );
 
         // 处理狼人杀人目标
         this.processWerewolfAction(result);
+
+        // 记录狼人夜间行动到游戏日志
+        if (this.gameLog) {
+          this.gameLog.nightActions.push({
+            round: this.round,
+            playerId: leadWerewolf.id,
+            role: 'WEREWOLF',
+            action: result.action,
+            target: result.target,
+            reason: result.reason,
+            thinking: result.thinking,
+            traceId: result.traceId,
+            timestamp: new Date().toISOString()
+          });
+        }
 
       } else {
         this.operationLogSystem.logResult(`狼人 ${leadWerewolf.id} 行动失败`);
@@ -298,16 +313,34 @@ export class GameMaster {
       const result = await seer.useAbility(this);
 
       if (result) {
-        console.log(`🔮 Seer investigation result:`, result);
-
-        // 记录预言家查验结果
-        this.operationLogSystem.logPlayerResponse(seer.id, '夜间查验', `查验玩家${result.target}。${result.reason}`);
+        // 记录预言家查验结果（包含trace_id）
+        this.operationLogSystem.logPlayerResponse(
+          seer.id,
+          '夜间查验',
+          `查验玩家${result.target}。${result.reason}`,
+          result.traceId
+        );
 
         // 处理预言家查验结果
         this.processSeerAction(result);
 
+        // 记录预言家夜间行动到游戏日志
+        if (this.gameLog) {
+          this.gameLog.nightActions.push({
+            round: this.round,
+            playerId: seer.id,
+            role: 'SEER',
+            action: result.action,
+            target: result.target,
+            reason: result.reason,
+            thinking: result.thinking,
+            traceId: result.traceId,
+            timestamp: new Date().toISOString()
+          });
+        }
+
         // seerResult已经保存，不添加到公开speech以免暴露身份
-      } else {
+      } else{
         this.operationLogSystem.logResult(`预言家 ${seer.id} 查验失败`);
       }
     }
@@ -323,8 +356,6 @@ export class GameMaster {
         const result = await witch.useAbility(this);
 
         if (result) {
-          console.log(`🧙 Witch action result:`, result);
-
           // 构建行动描述
           let actionDesc = '';
           if (result.action === 'using') {
@@ -338,11 +369,28 @@ export class GameMaster {
             actionDesc = '选择不使用药水。' + (result.healReason || result.poisonReason || '');
           }
 
-          // 记录女巫行动结果
-          this.operationLogSystem.logPlayerResponse(witch.id, '药水使用', actionDesc);
+          // 记录女巫行动结果（包含trace_id）
+          this.operationLogSystem.logPlayerResponse(witch.id, '药水使用', actionDesc, result.traceId);
 
           // 处理女巫的行动
           this.processWitchAction(witch,result);
+
+          // 记录女巫夜间行动到游戏日志
+          if (this.gameLog) {
+            this.gameLog.nightActions.push({
+              round: this.round,
+              playerId: witch.id,
+              role: 'WITCH',
+              action: result.action,
+              healTarget: result.healTarget,
+              poisonTarget: result.poisonTarget,
+              healReason: result.healReason,
+              poisonReason: result.poisonReason,
+              thinking: result.thinking,
+              traceId: result.traceId,
+              timestamp: new Date().toISOString()
+            });
+          }
 
           // 女巫行动已记录到operationLog，不添加到公开speech以免暴露身份
         } else {
@@ -363,6 +411,28 @@ export class GameMaster {
           victim.isAlive = false;
           console.log(`💀 ${victim.id} died during the night`);
           this.operationLogSystem.logResult(`${victim.id} 在夜间死亡`);
+
+          // 更新游戏日志中的玩家状态
+          if (this.gameLog) {
+            // 判断死亡原因（被狼人击杀或被女巫毒死）
+            const deathReason = this.nightTemp.witchPoisonTarget === playerId ? 'poison' : 'werewolf_kill';
+
+            // 更新玩家状态
+            const playerInfo = this.gameLog.players.find(p => p.id === playerId);
+            if (playerInfo) {
+              playerInfo.isAlive = false;
+              playerInfo.deathRound = this.round;
+              playerInfo.deathReason = deathReason;
+            }
+
+            // 记录死亡事件
+            this.gameLog.events.push({
+              type: 'player_death',
+              description: `玩家${playerId}在夜间死亡`,
+              data: { playerId, reason: deathReason },
+              timestamp: new Date().toISOString()
+            });
+          }
         }
       }
 
@@ -398,14 +468,12 @@ export class GameMaster {
       this.operationLogSystem.logPlayerRequest(player.id, '发言');
 
       const result = await player.speak(this);
-            if (result) {
-        console.log(`💬 ${player.id} said: ${result.speech}`);
-
+      if (result) {
         // 记录发言结果
         this.operationLogSystem.logPlayerResponse(player.id, '发言', `"${result.speech}"`);
 
-        // 添加玩家发言
-        await this.addSpeech(player.id, result.speech);
+        // 添加玩家发言（包括内心独白和traceId）
+        await this.addSpeech(player.id, result.speech, 'player', result.thinking, result.traceId);
       } else {
         this.operationLogSystem.logResult(`${player.id} 发言失败`);
       }
@@ -429,12 +497,34 @@ export class GameMaster {
       const result = await player.vote(this);
 
       if (result) {
-        console.log(`🗳️ ${player.id} voted: ${result.target}, reason: ${result.reason}`);
+        // 记录投票结果，包含投票理由和trace_id
+        this.operationLogSystem.logPlayerResponse(
+          player.id,
+          '投票',
+          `投给 ${result.target}。理由：${result.reason}`,
+          result.traceId
+        );
 
-        // 记录投票结果，包含投票理由
-        this.operationLogSystem.logPlayerResponse(player.id, '投票', `投给 ${result.target}`);
-        if (result.reason) {
-          this.operationLogSystem.logPlayerResponse(player.id, '投票理由', result.reason);
+        // 添加投票信息到聊天显示（包括内心独白和traceId）
+        await this.addSpeech(
+          player.id,
+          `🗳️ 投票给 ${result.target}号玩家。理由：${result.reason}`,
+          'player',
+          result.thinking,
+          result.traceId
+        );
+
+        // 记录投票到游戏日志
+        if (this.gameLog) {
+          this.gameLog.votes.push({
+            round: this.round,
+            voterId: player.id,
+            targetId: result.target,
+            reason: result.reason,
+            thinking: result.thinking,
+            traceId: result.traceId,
+            timestamp: new Date().toISOString()
+          });
         }
 
         // 查找被投票的玩家ID
@@ -478,13 +568,14 @@ export class GameMaster {
 
   // This GameMaster instance manages a single game, so getGameState is not needed
 
-  async addPlayer(playerId: number, url: string): Promise<void> {
+  async addPlayer(playerId: number, url: string, personality?: string): Promise<void> {
     console.log(`👤 Adding player ${playerId} to game ${this.gameId}`);
 
     // 只添加客户端信息，角色信息在assignRoles时分配
     const client: Client = {
       id: playerId,
-      url: url
+      url: url,
+      personality: personality
     };
 
     this.clients.push(client);
@@ -497,7 +588,7 @@ export class GameMaster {
     const roleConfigs = RoleAssignment.getDefaultRoleConfig(this.clients.length);
 
     // 生成并打乱角色数组
-    const roles: Role[] = roleConfigs.flatMap(config => 
+    const roles: Role[] = roleConfigs.flatMap(config =>
       Array(config.count).fill(config.role)
     );
     const shuffledRoles = this.shuffleArray(roles);
@@ -506,18 +597,56 @@ export class GameMaster {
     this.clients.forEach((client, index) => {
       const assignedRole = shuffledRoles[index];
       const playerAPIClient = new PlayerAPIClient(client.id, client.url);
-      
+
       // 使用工厂函数创建正确的Player类实例
       client.player = createPlayer(
         assignedRole,
         client.id,
         playerAPIClient,
         this.gameId,
-        index
+        index,
+        client.personality
       );
 
-      console.log(`🎭 Player ${client.id} assigned role: ${assignedRole}`);
+      console.log(`🎭 Player ${client.id} assigned role: ${assignedRole}, personality: ${client.personality || '默认'}`);
     });
+
+    // 初始化游戏日志（在内存中构建）
+    const config = {
+      playerCount: this.clients.length,
+      roles: {
+        werewolf: roleConfigs.find(r => r.role === Role.WEREWOLF)?.count || 0,
+        seer: roleConfigs.find(r => r.role === Role.SEER)?.count || 0,
+        witch: roleConfigs.find(r => r.role === Role.WITCH)?.count || 0,
+        villager: roleConfigs.find(r => r.role === Role.VILLAGER)?.count || 0
+      }
+    };
+
+    // 设置玩家信息
+    const playerInfos: GameLogPlayerInfo[] = this.players.map(p => ({
+      id: p.id,
+      role: p.role,
+      isAlive: p.isAlive
+    }));
+
+    // 初始化游戏日志对象
+    this.gameLog = {
+      gameId: this.gameId,
+      startTime: new Date().toISOString(),
+      config,
+      players: playerInfos,
+      totalRounds: 0,
+      speeches: [],
+      votes: [],
+      nightActions: [],
+      events: [
+        {
+          type: 'game_start',
+          description: '游戏开始',
+          timestamp: new Date().toISOString()
+        }
+      ]
+    };
   }
 
   async nextPhase(): Promise<GamePhase> {
@@ -535,6 +664,11 @@ export class GameMaster {
 
     if (this.currentPhase === GamePhase.NIGHT) {
       this.round++;
+
+      // 更新游戏日志的轮次
+      if (this.gameLog) {
+        this.gameLog.totalRounds = this.round;
+      }
     }
 
     // 记录阶段切换
@@ -547,6 +681,16 @@ export class GameMaster {
     };
 
     this.operationLogSystem.logPhaseChange(phaseNames[this.currentPhase], this.round);
+
+    // 记录阶段切换事件到游戏日志
+    if (this.gameLog) {
+      this.gameLog.events.push({
+        type: `${this.currentPhase}_start`,
+        description: `进入${phaseNames[this.currentPhase]}阶段`,
+        data: { phase: this.currentPhase, round: this.round },
+        timestamp: new Date().toISOString()
+      });
+    }
 
     // 添加阶段切换的系统通知
     const phaseEmojis = {
@@ -608,6 +752,25 @@ export class GameMaster {
     const player = this.players.find(p => p.id === playerId);
     if (player) {
       player.isAlive = false;
+
+      // 更新游戏日志中的玩家状态
+      if (this.gameLog) {
+        // 更新玩家状态
+        const playerInfo = this.gameLog.players.find(p => p.id === playerId);
+        if (playerInfo) {
+          playerInfo.isAlive = false;
+          playerInfo.deathRound = this.round;
+          playerInfo.deathReason = 'vote';
+        }
+
+        // 记录死亡事件
+        this.gameLog.events.push({
+          type: 'player_death',
+          description: `玩家${playerId}被投票淘汰`,
+          data: { playerId, reason: 'vote' },
+          timestamp: new Date().toISOString()
+        });
+      }
     }
   }
 
@@ -628,12 +791,43 @@ export class GameMaster {
 
     // 添加游戏结束的系统消息
     if (winCondition !== WinCondition.ONGOING) {
+      let winner: 'werewolf' | 'villager' | 'draw' = 'draw';
+      let reason = '';
+
       if (winCondition === WinCondition.WEREWOLVES_WIN) {
         await this.addSpeech(-1, '🐺 游戏结束！狼人获胜！', 'system');
+        winner = 'werewolf';
+        reason = '狼人数量达到或超过好人数量';
       } else if (winCondition === WinCondition.VILLAGERS_WIN) {
         await this.addSpeech(-1, '👥 游戏结束！好人获胜！', 'system');
+        winner = 'villager';
+        reason = '所有狼人被淘汰';
       }
+
       this.currentPhase = GamePhase.ENDED;
+
+      // 结束游戏并保存日志
+      if (this.gameLog) {
+        // 设置游戏结束信息
+        this.gameLog.endTime = new Date().toISOString();
+        this.gameLog.duration = Date.now() - new Date(this.gameLog.startTime).getTime();
+        this.gameLog.result = {
+          winner,
+          reason,
+          survivingPlayers: this.alivePlayers.map(p => p.id)
+        };
+
+        // 添加游戏结束事件
+        this.gameLog.events.push({
+          type: 'game_end',
+          description: `游戏结束：${reason}`,
+          data: { winner, reason },
+          timestamp: new Date().toISOString()
+        });
+
+        // 发送日志到服务器保存
+        await this.saveGameLog();
+      }
     }
 
     console.log(`🏆 Win condition: ${winCondition}`);
@@ -668,14 +862,51 @@ export class GameMaster {
     return tieCount === 1 ? eliminatedPlayer : null;
   }
 
-  async addSpeech(playerId: number, content: string, type: 'player' | 'system' = 'player'): Promise<void> {
+  async addSpeech(playerId: number, content: string, type: 'player' | 'system' = 'player', thinking?: string, traceId?: string): Promise<void> {
     const speech = {
       playerId,
       content,
-      type
+      type,
+      thinking,
+      traceId
     };
 
     this.speechSystem.addSpeech(this.round, speech);
+
+    // 记录玩家发言到游戏日志（排除系统消息）
+    if (type === 'player' && this.gameLog) {
+      this.gameLog.speeches.push({
+        round: this.round,
+        playerId,
+        content,
+        thinking,
+        traceId,
+        timestamp: new Date().toISOString()
+      });
+    }
+  }
+
+  private async saveGameLog(): Promise<void> {
+    if (!this.gameLog) return;
+
+    try {
+      console.log(`💾 Saving game log for game ${this.gameId}...`);
+      const response = await fetch('/api/game-logs', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(this.gameLog)
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to save game log: ${response.statusText}`);
+      }
+
+      console.log(`✅ Game log saved successfully for game ${this.gameId}`);
+    } catch (error) {
+      console.error(`❌ Failed to save game log:`, error);
+    }
   }
 
   getSpeeches() {
@@ -692,9 +923,7 @@ export class GameMaster {
 
   // MobX computed 属性，用于UI组件直接访问
   get recentOperationLogs() {
-    const logs = this.operationLogSystem.getLogs(); // 移除了 slice(-20) 限制，显示所有操作记录
-    console.log('🔍 recentOperationLogs getter called, returning:', logs.length, 'logs');
-    return logs;
+    return this.operationLogSystem.getLogs(); // 移除了 slice(-20) 限制，显示所有操作记录
   }
 
 }

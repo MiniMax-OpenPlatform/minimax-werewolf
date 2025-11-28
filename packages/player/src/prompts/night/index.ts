@@ -1,5 +1,5 @@
 import type { GameContext, PlayerContext, SeerContext, WitchContext } from '@ai-werewolf/types';
-import { formatPlayerList, formatHistoryEvents } from '../utils';
+import { formatPlayerList, formatHistoryEvents, formatSpeechHistory } from '../utils';
 import { Role } from '@ai-werewolf/types';
 import type { PlayerServer } from '../../PlayerServer';
 
@@ -7,9 +7,10 @@ export function getWerewolfNightAction(playerServer: PlayerServer, context: Game
   const playerList = formatPlayerList(context.alivePlayers);
   const historyEvents = formatHistoryEvents(['夜间行动阶段']);
   const teammates = playerServer.getTeammates()?.join('、') || '暂无队友信息';
-  
+  const speechSummary = formatSpeechHistory(Object.values(context.allSpeeches || {}).flat());
+
   // 添加游戏进度说明，防止AI幻觉
-  const gameProgressInfo = context.round === 1 
+  const gameProgressInfo = context.round === 1
     ? `【重要提示】现在是第1轮夜间阶段，游戏刚刚开始：
   - 还没有任何白天发言记录
   - 还没有任何投票记录
@@ -17,18 +18,19 @@ export function getWerewolfNightAction(playerServer: PlayerServer, context: Game
   - 你的击杀决策应基于随机性或位置策略
   - 不要假设或编造不存在的玩家行为`
     : '';
-  
+
   return `你是${playerServer.getPlayerId()}号玩家，狼人杀游戏中的狼人角色。当前游戏状态：
 - 存活玩家: [${playerList}]
-- 你的狼人队友ID: [${teammates}]
+- 你的狼人队友编号: [${teammates}]
 - 当前轮次: 第${context.round}轮
 - 历史事件: ${historyEvents}
+- 历史发言摘要: ${speechSummary}
 
 ${gameProgressInfo}
 
 作为狼人，你需要决定：
-- action: 固定为'kill'
-- target: 要击杀的目标玩家ID（数字）
+- action: 固定为 kill（击杀）
+- target: 要击杀的目标玩家编号（数字）
 - reason: 选择该目标的详细理由
 
 击杀策略建议：
@@ -43,33 +45,35 @@ ${gameProgressInfo}
 export function getSeerNightAction(playerServer: PlayerServer, context: SeerContext): string {
   const playerList = formatPlayerList(context.alivePlayers);
   const historyEvents = formatHistoryEvents(['夜间行动阶段']);
+  const speechSummary = formatSpeechHistory(Object.values(context.allSpeeches || {}).flat());
   const checkInfo = context.investigatedPlayers ? Object.values(context.investigatedPlayers)
     .map((investigation) => {
       const investigationData = investigation as { target: number; isGood: boolean };
       return `玩家${investigationData.target}是${investigationData.isGood ? '好人' : '狼人'}`;
     })
     .join('，') : '暂无查验结果';
-  
+
   // 添加游戏进度说明，防止AI幻觉
-  const gameProgressInfo = context.round === 1 
+  const gameProgressInfo = context.round === 1
     ? `【重要提示】现在是第1轮夜间阶段，游戏刚刚开始：
   - 还没有任何白天发言记录
   - 还没有任何投票记录
   - 你只能基于随机性或位置选择查验目标
   - 不要假设或编造不存在的玩家行为`
     : '';
-  
+
   return `你是${playerServer.getPlayerId()}号玩家，狼人杀游戏中的预言家角色。当前游戏状态：
 - 存活玩家: [${playerList}]
 - 当前轮次: 第${context.round}轮
 - 历史事件: ${historyEvents}
+- 历史发言摘要: ${speechSummary}
 - 已查验结果: ${checkInfo}
 
 ${gameProgressInfo}
 
 作为预言家，你需要决定：
-- action: 固定为'investigate'
-- target: 要查验的目标玩家ID（数字，不能是${playerServer.getPlayerId()}）
+- action: 固定为 investigate（查验）
+- target: 要查验的目标玩家编号（数字，不能是${playerServer.getPlayerId()}）
 - reason: 选择该玩家的理由
 
 查验策略建议：
@@ -85,24 +89,26 @@ ${gameProgressInfo}
 export function getWitchNightAction(playerServer: PlayerServer, context: WitchContext): string {
   const playerList = formatPlayerList(context.alivePlayers);
   const historyEvents = formatHistoryEvents(['夜间行动阶段']);
-  const potionInfo = context.potionUsed ? 
-    `解药${context.potionUsed.heal ? '已用' : '可用'}，毒药${context.potionUsed.poison ? '已用' : '可用'}` 
+  const speechSummary = formatSpeechHistory(Object.values(context.allSpeeches || {}).flat());
+  const potionInfo = context.potionUsed ?
+    `解药${context.potionUsed.heal ? '已用' : '可用'}，毒药${context.potionUsed.poison ? '已用' : '可用'}`
     : '解药可用，毒药可用';
-  
+
   // 添加游戏进度说明，防止AI幻觉
-  const gameProgressInfo = context.round === 1 
+  const gameProgressInfo = context.round === 1
     ? `【重要提示】现在是第1轮夜间阶段，游戏刚刚开始：
   - 还没有任何白天发言记录
   - 还没有任何投票记录
   - 你只知道当前存活的玩家和今晚被杀的玩家
   - 请基于当前已知信息做决策，不要假设或编造不存在的信息`
     : '';
-  
+
   return `你是${playerServer.getPlayerId()}号玩家，狼人杀游戏中的女巫角色。当前游戏状态：
 - 存活玩家: [${playerList}]
 - 当前轮次: 第${context.round}轮
-- 今晚被杀玩家ID: ${context.killedTonight || 0} (0表示无人被杀)
+- 今晚被杀玩家编号: ${context.killedTonight || 0} (0表示无人被杀)
 - 历史事件: ${historyEvents}
+- 历史发言摘要: ${speechSummary}
 
 ${gameProgressInfo}
 
@@ -110,14 +116,14 @@ ${gameProgressInfo}
 ${potionInfo}
 
 作为女巫，你需要决定：
-1. 是否使用解药救人（healTarget: 被杀玩家的ID或0表示不救）
-2. 是否使用毒药毒人（poisonTarget: 要毒的玩家ID或0表示不毒）
-3. action: 'using'（使用任意药水）或'idle'（不使用药水）
+1. 是否使用解药救人（healTarget: 被杀玩家的编号或0表示不救）
+2. 是否使用毒药毒人（poisonTarget: 要毒的玩家编号或0表示不毒）
+3. action: using（使用任意药水）或 idle（不使用药水）
 
 注意：
-- 如果救人，healTarget设为被杀玩家的ID
-- 如果毒人，poisonTarget设为目标玩家的ID
-- 如果都不使用，action设为'idle'，两个target都设为0
+- 如果救人，healTarget设为被杀玩家的编号
+- 如果毒人，poisonTarget设为目标玩家的编号
+- 如果都不使用，action设为 idle，两个target都设为0
 - 请为每个决定提供详细的理由（healReason和poisonReason）
 - 第1轮夜间时，你的决策理由应该基于：被杀玩家的身份、药水的战略价值、随机性等，而不是基于不存在的"白天发言"`;
 }

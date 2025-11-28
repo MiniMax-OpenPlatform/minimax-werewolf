@@ -13,6 +13,7 @@ export interface PlayerConfig {
     temperature: number;
     provider: 'openrouter' | 'openai';
     apiKey?: string;
+    baseURL?: string;  // 新增：支持自定义 API 基础 URL
   };
   game: {
     personality: string;
@@ -108,6 +109,9 @@ export class ConfigLoader {
     }
     if (process.env.AI_TEMPERATURE) {
       config.ai.temperature = parseFloat(process.env.AI_TEMPERATURE);
+    }
+    if (process.env.AI_BASE_URL) {
+      config.ai.baseURL = process.env.AI_BASE_URL;
     }
     if (process.env.OPENROUTER_API_KEY) {
       config.ai.provider = 'openrouter';

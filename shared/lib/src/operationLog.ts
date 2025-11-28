@@ -10,6 +10,7 @@ export interface OperationLog {
     actionType?: string;
     target?: string;
     result?: string;
+    traceId?: string;  // LLM请求的trace ID
   };
 }
 
@@ -32,7 +33,6 @@ export class OperationLogSystem {
     };
 
     this.logs.push(operationLog);
-    console.log('🔍 addLog called:', log.message, 'total logs:', this.logs.length);
   }
 
   getLogs(): OperationLog[] {
@@ -65,11 +65,11 @@ export class OperationLogSystem {
     });
   }
 
-  logPlayerResponse(playerId: number, actionType: string, result?: string): void {
+  logPlayerResponse(playerId: number, actionType: string, result?: string, traceId?: string): void {
     this.addLog({
       type: 'player_response',
-      message: `📥 玩家${playerId} ${actionType}完成${result ? ': ' + result : ''}`,
-      details: { playerId, actionType, result }
+      message: `📥 玩家${playerId} ${actionType}完成`,
+      details: { playerId, actionType, result, traceId }
     });
   }
 

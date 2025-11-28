@@ -101,15 +101,16 @@ app.post('/api/player/speak', async (req, res) => {
     // 直接使用 PlayerContext 类型，不验证输入
     const context: PlayerContext = req.body;
     
-    const speech = await playerServer.speak(context);
-    
+    const speechResponse = await playerServer.speak(context);
+
     // 刷新Langfuse数据
     await flushLangfuseData();
-    
-    const response = SpeechResponseSchema.parse({ speech });
+
+    // speechResponse 已经是完整的对象，包含 speech 和 thinking
+    const response = SpeechResponseSchema.parse(speechResponse);
     console.log('Response:', JSON.stringify(response, null, 2));
     console.log('=== END SPEAK REQUEST ===\n');
-    
+
     res.json(response);
   } catch (error) {
     console.error('Speak error:', error);

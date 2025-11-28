@@ -26,14 +26,16 @@ export abstract class BasePlayer {
   apiClient: PlayerAPIClient;
   position: number;
   isAlive: boolean;
+  personality: string;
   abstract role: Role;
 
-  constructor(gameId: string, id: PlayerId, apiClient: PlayerAPIClient, position: number) {
+  constructor(gameId: string, id: PlayerId, apiClient: PlayerAPIClient, position: number, personality?: string) {
     this.gameId = gameId;
     this.id = id;
     this.apiClient = apiClient;
     this.position = position;
     this.isAlive = true;
+    this.personality = personality || '普通玩家';
   }
 
   async useAbility(gameMaster: GameMaster): Promise<any>{
@@ -72,7 +74,8 @@ export abstract class BasePlayer {
       gameId: this.gameId,
       role: this.role,
       playerId: this.id,
-      teammates
+      teammates,
+      personality: this.personality
     });
   }
 
@@ -103,19 +106,20 @@ export class WerewolfPlayer extends BasePlayer {
 
   async useAbility(gameMaster: GameMaster): Promise<WerewolfAbilityResponse | null> {
     const response = await super.useAbility(gameMaster);
-    
+
     if (response) {
       // 使用 zod 验证返回结果
       const validatedResponse = WerewolfNightActionSchema.parse(response);
       return validatedResponse;
     }
-    
+
     return null;
   }
-  
+
   protected buildContext(gameMaster: GameMaster) {
     return {
       ...super.buildContext(gameMaster),
+      lastKillTarget: gameMaster.lastWerewolfKill,  // 传递上次击杀目标
     }
   }
 }
@@ -220,21 +224,22 @@ export function createPlayer(
   playerId: PlayerId,
   apiClient: PlayerAPIClient,
   gameId: string,
-  position: number
+  position: number,
+  personality?: string
 ): Player {
   switch (role) {
     case Role.WEREWOLF:
-      return new WerewolfPlayer(gameId, playerId, apiClient, position);
+      return new WerewolfPlayer(gameId, playerId, apiClient, position, personality);
 
     case Role.WITCH:
-      return new WitchPlayer(gameId, playerId, apiClient, position);
+      return new WitchPlayer(gameId, playerId, apiClient, position, personality);
 
     case Role.SEER:
-      return new SeerPlayer(gameId, playerId, apiClient, position);
+      return new SeerPlayer(gameId, playerId, apiClient, position, personality);
 
     case Role.VILLAGER:
     default:
-      return new VillagerPlayer(gameId, playerId, apiClient, position);
+      return new VillagerPlayer(gameId, playerId, apiClient, position, personality);
   }
 }
 

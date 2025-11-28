@@ -2,13 +2,17 @@ import { z } from 'zod';
 
 // Speech Response Schema - 对应发言生成的返回格式
 export const SpeechResponseSchema = z.object({
-  speech: z.string().describe('生成的发言内容')
+  speech: z.string().describe('生成的发言内容'),
+  thinking: z.string().optional().describe('玩家内心独白，只有该玩家自己能看到'),
+  traceId: z.string().optional().describe('LLM请求的trace ID，用于追踪和调试')
 });
 
 // Voting Response Schema - 对应投票决策的返回格式
 export const VotingResponseSchema = z.object({
   target: z.number().describe('要投票的玩家ID'),
-  reason: z.string().describe('投票的理由')
+  reason: z.string().describe('投票的理由'),
+  thinking: z.string().optional().describe('玩家内心独白，只有该玩家自己能看到'),
+  traceId: z.string().optional().describe('LLM请求的trace ID，用于追踪和调试')
 });
 
 // 狼人夜间行动Schema - 匹配API的WerewolfAbilityResponse
@@ -16,6 +20,8 @@ export const WerewolfNightActionSchema = z.object({
   action: z.literal('kill').describe('行动类型，狼人固定为kill'),
   target: z.number().describe('要击杀的目标玩家ID'),
   reason: z.string().describe('选择该目标的详细理由，包括对其身份的推测'),
+  thinking: z.string().optional().describe('玩家内心独白，只有该玩家自己能看到'),
+  traceId: z.string().optional().describe('LLM请求的trace ID，用于追踪和调试')
 });
 
 // 预言家夜间行动Schema - 匹配API的SeerAbilityResponse
@@ -23,6 +29,8 @@ export const SeerNightActionSchema = z.object({
   action: z.literal('investigate').describe('行动类型，预言家固定为investigate'),
   target: z.number().describe('要查验身份的目标玩家ID'),
   reason: z.string().describe('选择查验该玩家的理由，基于其发言和行为的分析'),
+  thinking: z.string().optional().describe('玩家内心独白，只有该玩家自己能看到'),
+  traceId: z.string().optional().describe('LLM请求的trace ID，用于追踪和调试')
 });
 
 // 女巫夜间行动Schema - 匹配API的WitchAbilityResponse
@@ -32,6 +40,8 @@ export const WitchNightActionSchema = z.object({
   healReason: z.string().describe('救人或不救人的理由'),
   poisonTarget: z.number().describe('毒人的目标玩家ID，0表示不毒人'),
   poisonReason: z.string().describe('毒人或不毒人的理由'),
+  thinking: z.string().optional().describe('玩家内心独白，只有该玩家自己能看到'),
+  traceId: z.string().optional().describe('LLM请求的trace ID，用于追踪和调试')
 });
 
 

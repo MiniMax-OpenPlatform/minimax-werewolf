@@ -1,9 +1,9 @@
-import { 
-  Role, 
+import {
+  Role,
   GamePhase,
-  type StartGameParams, 
-  type PlayerContext, 
-  type WitchContext, 
+  type StartGameParams,
+  type PlayerContext,
+  type WitchContext,
   type SeerContext,
   type PlayerId,
   PersonalityType,
@@ -14,10 +14,11 @@ import {
   WerewolfNightActionSchema,
   SeerNightActionSchema,
   WitchNightActionSchema,
-  SpeechResponseSchema
+  SpeechResponseSchema,
+  GAME_RULES_TEXT
 } from '@ai-werewolf/types';
 import { WerewolfPrompts } from './prompts';
-import { generateObject } from 'ai';
+import { generateObject, generateText } from 'ai';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import { 
   getAITelemetryConfig,
@@ -42,6 +43,7 @@ export class PlayerServer {
   private role?: Role;
   private teammates?: PlayerId[];
   private config: PlayerConfig;
+  private thinkingHistory: string[] = []; // 存储玩家的内心独白历史
 
   constructor(config: PlayerConfig) {
     this.config = config;
@@ -52,7 +54,8 @@ export class PlayerServer {
     this.role = params.role as Role;
     this.teammates = params.teammates;
     this.playerId = params.playerId;
-    
+    this.thinkingHistory = [];  // Clear thinking history between games to prevent role contamination
+
     // 创建 Langfuse session
     createGameSession(this.gameId, {
       playerId: this.playerId,
@@ -70,13 +73,13 @@ export class PlayerServer {
     }
   }
 
-  async speak(context: PlayerContext): Promise<string> {
+  async speak(context: PlayerContext): Promise<SpeechResponseType> {
     if (!this.role || !this.config.ai.apiKey) {
-      return "我需要仔细思考一下当前的情况。";
+      return { speech: "我需要仔细思考一下当前的情况。" };
     }
 
     const speechResponse = await this.generateSpeech(context);
-    return speechResponse.speech;
+    return speechResponse; // 返回完整对象，包含 speech 和 thinking
   }
 
   async vote(context: PlayerContext): Promise<VotingResponseType> {
@@ -134,6 +137,37 @@ export class PlayerServer {
     return this.gameId;
   }
 
+  // 从AI响应文本中提取JSON和思考过程 (处理MiniMax的<think>标签和markdown包装)
+  private extractJSON(text: string): { json: string; thinking?: string } {
+    // 提取<think>...</think>标签内的思考内容
+    let thinking: string | undefined;
+    const thinkMatch = text.match(/<think>([\s\S]*?)<\/think>/);
+    if (thinkMatch) {
+      thinking = thinkMatch[1].trim();
+      console.log(`💭 AI思考过程:\n${thinking}`);
+    }
+
+    // 移除<think>...</think>标签及其内容，获取JSON部分
+    let cleaned = text.replace(/<think>[\s\S]*?<\/think>/g, '');
+
+    // 移除markdown代码块标记
+    cleaned = cleaned.replace(/```json\s*/g, '').replace(/```\s*/g, '');
+
+    // 移除前后空白
+    cleaned = cleaned.trim();
+
+    // 如果以'-'开头(markdown列表格式)，尝试提取JSON对象
+    if (cleaned.includes('{')) {
+      const jsonStart = cleaned.indexOf('{');
+      const jsonEnd = cleaned.lastIndexOf('}');
+      if (jsonStart !== -1 && jsonEnd !== -1) {
+        cleaned = cleaned.substring(jsonStart, jsonEnd + 1);
+      }
+    }
+
+    return { json: cleaned, thinking };
+  }
+
   // 通用AI生成方法
   private async generateWithLangfuse<T>(
     params: {
@@ -146,27 +180,79 @@ export class PlayerServer {
     }
   ): Promise<T> {
     const { functionId, context, schema, prompt, maxOutputTokens, temperature } = params;
-    
+
     console.log(`📝 ${functionId} prompt:`, prompt);
     console.log(`📋 ${functionId} schema:`, JSON.stringify(schema.shape, null, 2));
-    
+
     // 获取遥测配置
     const telemetryConfig = this.getTelemetryConfig(functionId, context);
-    
+
     try {
-      const result = await generateObject({
+      // 使用generateText获取原始响应，然后手动解析
+      const result = await generateText({
         model: this.getModel(),
-        schema: schema,
-        prompt: prompt,
-        maxOutputTokens: maxOutputTokens || this.config.ai.maxTokens,
+        system: GAME_RULES_TEXT,
+        prompt: prompt + '\n\n请直接返回JSON格式的结果，不要包含其他说明文字。',
         temperature: temperature ?? this.config.ai.temperature,
         // 使用 experimental_telemetry（只有在有配置时才传递）
         ...(telemetryConfig && { experimental_telemetry: telemetryConfig }),
       });
 
-      console.log(`🎯 ${functionId} result:`, JSON.stringify(result.object, null, 2));
-      
-      return result.object as T;
+      console.log(`📄 ${functionId} raw response:`, result.text);
+
+      // 提取trace_id（从response metadata中获取）
+      let traceId: string | undefined;
+
+      // 尝试从不同来源获取trace_id
+      if ((result as any).experimental_providerMetadata) {
+        // 从provider metadata获取
+        const metadata = (result as any).experimental_providerMetadata;
+        traceId = metadata?.traceId || metadata?.requestId || metadata?.['trace-id'];
+      }
+
+      // 如果没有找到，尝试从response headers获取
+      if (!traceId && (result as any).response?.headers) {
+        const headers = (result as any).response.headers;
+        traceId = headers?.get?.('trace-id') || headers?.get?.('x-trace-id') || headers?.get?.('x-request-id');
+      }
+
+      // 如果还是没有，使用result中的其他标识符
+      if (!traceId && (result as any).response) {
+        const response = (result as any).response;
+        traceId = response.id || response.requestId;
+      }
+
+      // 生成fallback trace_id（使用时间戳+随机数）
+      if (!traceId) {
+        traceId = `${functionId}-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+      }
+
+      console.log(`🔖 ${functionId} Trace-ID:`, traceId);
+
+      // 从响应中提取JSON和思考过程
+      const { json: jsonText, thinking } = this.extractJSON(result.text);
+      console.log(`🔍 ${functionId} extracted JSON:`, jsonText);
+
+      // 解析JSON
+      const parsed = JSON.parse(jsonText);
+
+      // 使用Zod schema验证
+      const validated = schema.parse(parsed);
+
+      // 将thinking和traceId添加到验证后的结果中
+      if (thinking) {
+        (validated as any).thinking = thinking;
+        // 保存到历史记录
+        this.thinkingHistory.push(thinking);
+        console.log(`💭 内心独白已保存 (历史记录数: ${this.thinkingHistory.length})`);
+      }
+
+      // 添加traceId
+      (validated as any).traceId = traceId;
+
+      console.log(`🎯 ${functionId} result:`, JSON.stringify(validated, null, 2));
+
+      return validated as T;
     } catch (error) {
       console.error(`AI ${functionId} failed:`, error);
       throw new Error(`Failed to generate ${functionId}: ${error}`);
@@ -223,7 +309,18 @@ export class PlayerServer {
       context
     );
 
-    return speechPrompt + '\n\n注意：发言内容控制在30-80字，语言自然，像真人玩家。';
+    // 添加玩家自己的内心独白历史（只保留最近3次避免prompt过长）
+    let thinkingContext = '';
+    if (this.thinkingHistory.length > 0) {
+      thinkingContext = '\n\n## 你之前的内心独白（只有你自己知道）：\n';
+      const recentThinking = this.thinkingHistory.slice(-3); // 只保留最近3次
+      recentThinking.forEach((thinking, index) => {
+        const actualIndex = this.thinkingHistory.length - recentThinking.length + index + 1;
+        thinkingContext += `第${actualIndex}次：${thinking}\n`;
+      });
+    }
+
+    return speechPrompt + thinkingContext + '\n\n请返回JSON格式，包含以下字段：\n- speech: 你的发言内容（30-80字的自然对话，其他玩家都能听到）\n\n请直接返回JSON格式的结果，不要包含其他说明文字。';
   }
 
   private buildVotePrompt(context: PlayerContext): string {
@@ -251,28 +348,57 @@ export class PlayerServer {
       context
     );
 
-    return personalityPrompt + votingPrompt;
+    // 添加玩家自己的内心独白历史（只保留最近3次避免prompt过长）
+    let thinkingContext = '';
+    if (this.thinkingHistory.length > 0) {
+      thinkingContext = '\n\n## 你之前的内心独白（只有你自己知道）：\n';
+      const recentThinking = this.thinkingHistory.slice(-3); // 只保留最近3次
+      recentThinking.forEach((thinking, index) => {
+        const actualIndex = this.thinkingHistory.length - recentThinking.length + index + 1;
+        thinkingContext += `第${actualIndex}次：${thinking}\n`;
+      });
+    }
+
+    return personalityPrompt + votingPrompt + thinkingContext + '\n\n注意：请严格按照投票格式返回JSON，包含target和reason字段。';
   }
 
   private buildAbilityPrompt(context: PlayerContext | WitchContext | SeerContext): string {
     const nightPrompt = WerewolfPrompts.getNightAction(this, context);
-    
-    return nightPrompt;
+
+    // 添加玩家自己的内心独白历史（只保留最近3次避免prompt过长）
+    let thinkingContext = '';
+    if (this.thinkingHistory.length > 0) {
+      thinkingContext = '\n\n## 你之前的内心独白（只有你自己知道）：\n';
+      const recentThinking = this.thinkingHistory.slice(-3); // 只保留最近3次
+      recentThinking.forEach((thinking, index) => {
+        const actualIndex = this.thinkingHistory.length - recentThinking.length + index + 1;
+        thinkingContext += `第${actualIndex}次：${thinking}\n`;
+      });
+    }
+
+    return nightPrompt + thinkingContext;
   }
 
   // 辅助方法
   private getModel() {
-    const openrouter = createOpenAICompatible({
-      name: 'openrouter',
-      baseURL: 'https://openrouter.ai/api/v1',
-      apiKey: this.config.ai.apiKey || process.env.OPENROUTER_API_KEY,
+    // 获取 baseURL，优先使用配置中的，其次使用环境变量，最后使用默认值
+    const baseURL = this.config.ai.baseURL
+      || process.env.AI_BASE_URL
+      || 'https://openrouter.ai/api/v1';
+
+    const providerName = this.config.ai.provider || 'openrouter';
+
+    const aiProvider = createOpenAICompatible({
+      name: providerName,
+      baseURL: baseURL,
+      apiKey: this.config.ai.apiKey || process.env.OPENROUTER_API_KEY || process.env.OPENAI_API_KEY,
       headers: {
         'HTTP-Referer': 'https://mojo.monad.xyz',
         'X-Title': 'AI Werewolf Game',
       },
     });
-    
-    return openrouter.chatModel(this.config.ai.model);
+
+    return aiProvider.chatModel(this.config.ai.model);
   }
 
   private getTelemetryConfig(

@@ -135,7 +135,136 @@ AI players run on ports 3001-3006 with personalities defined in YAML configs:
 - **Player Cards**: Show role icons (🐺🔮🧪👤), alive/dead status
 - **Auto-setup**: "Create New Game" button automatically configures 6 AI players
 
+## Environment Configuration
+
+### Required Environment Variables (.env)
+```bash
+# AI Provider (OpenRouter recommended - supports multiple models)
+OPENROUTER_API_KEY=your_key_here
+AI_MODEL=google/gemini-2.5-flashm  # or other OpenRouter models
+
+# Langfuse Telemetry (optional but recommended)
+LANGFUSE_SECRET_KEY=your_secret_key
+LANGFUSE_PUBLIC_KEY=your_public_key
+LANGFUSE_BASEURL=https://us.cloud.langfuse.com
+```
+
+### Player Configuration (YAML)
+Config files in `config/` directory define per-player settings:
+- `server.port`: Player server port (3001-3008 for 8 players)
+- `server.host`: Server host (default "0.0.0.0")
+- `ai.maxTokens`: Max tokens for AI responses (default 5000)
+- `ai.temperature`: AI temperature setting (default 0.8)
+- `ai.provider`: AI provider (e.g., "openrouter")
+- `game.personality`: Custom personality description
+- `game.strategy`: Strategy type (aggressive/conservative/balanced)
+- `logging.enabled`: Enable/disable logging
+
+## Testing
+
+### Running Tests
+```bash
+# Run all tests with Bun
+bun test
+
+# Watch mode
+bun run test:watch
+
+# Coverage report
+bun run test:coverage
+
+# Test specific packages
+bun run test:packages
+```
+
+### API Testing
+Test player endpoints directly:
+```bash
+# Test player speech generation
+curl -X POST http://localhost:3001/api/player/speak \
+  -H "Content-Type: application/json" \
+  -d '{"otherSpeeches": ["player2: 我觉得player3很可疑"]}'
+
+# Check player status
+curl http://localhost:3001/api/player/status
+```
+
+## Player Count Configuration
+- Script supports **8 players** (ports 3001-3008)
+- Frontend currently optimized for **6 players**
+- To add more players, update both:
+  - `scripts/dev-players.sh` (player array)
+  - Game configuration for role distribution
+
+## Prompt System Architecture
+
+### Prompt Organization
+Prompts are modular and role-specific in `packages/player/src/prompts/`:
+- `personality/` - Personality trait prompts (aggressive/conservative/cunning)
+- `speech/` - Role-specific speech generation prompts
+- `voting/` - Voting decision prompts by role
+- `night/` - Night action prompts for special roles
+- `special/` - Special scenarios (last words, etc.)
+
+### WerewolfPrompts Factory
+Main interface for prompt generation:
+- `WerewolfPrompts.getPersonality()` - Get personality prompt
+- `WerewolfPrompts.getSpeech()` - Generate speech prompt
+- `WerewolfPrompts.getVoting()` - Generate voting prompt
+- `WerewolfPrompts.getNightAction()` - Generate night action prompt
+
+## AI Response Validation
+
+All AI responses use Zod schemas for validation (`shared/types/src/schemas.ts`):
+- `SpeechResponseSchema` - Speech generation
+- `VotingResponseSchema` - Voting decisions
+- `WerewolfNightActionSchema` - Werewolf kill action
+- `SeerNightActionSchema` - Seer investigate action
+- `WitchNightActionSchema` - Witch heal/poison actions
+
+## API Communication Pattern
+
+### Game Master → Player Communication
+Game master sends HTTP requests to player servers on ports 3001-3008:
+
+**Endpoints:**
+- `POST /api/player/start` - Initialize player with game ID, role, teammates
+- `POST /api/player/speak` - Request speech during discussion phase
+- `POST /api/player/vote` - Request voting decision
+- `POST /api/player/ability` - Request night ability usage (role-specific)
+- `GET /api/player/status` - Health check and player status
+
+**Context Payload:**
+All requests include `PlayerContext` with:
+- `round`: Current round number
+- `phase`: Current game phase (DAY/NIGHT/etc.)
+- `alivePlayers`: Array of alive player IDs
+- `votingHistory`: Historical voting data
+- `speeches`: Recent player speeches
+- Role-specific context (e.g., `WitchContext` includes werewolf target)
+
+### Player API Client (`PlayerAPIClient`)
+Located in `packages/game-master-vite/src/lib/PlayerAPIClient.ts`:
+- Handles HTTP communication with player servers
+- Auto-retry logic with exponential backoff
+- Timeout handling (configurable per request type)
+- Error fallback to default responses
+
+## Logging & Monitoring
+
+### Log Files
+Development logs in `logs/` directory:
+- `player1-dev.log` through `player8-dev.log` - Player logs
+- `game-master-dev.log` - Game master logs (if configured)
+
+### Langfuse Tracing
+- Game sessions traced with game ID
+- Each player creates session with role and teammate info
+- Phase-level tracing for game flow analysis
+- AI generation events logged with telemetry
+
 ## Known Issues & Fixes
 - **Langfuse Integration**: `getAITelemetryConfig` must be exported from `shared/lib/src/langfuse.ts`
 - **Create Game**: Must add players and assign roles after game creation
 - **Type Imports**: Always import `PersonalityType` when using AI services
+- **Script Permissions**: Ensure `dev-players.sh` is executable: `chmod +x scripts/dev-players.sh`

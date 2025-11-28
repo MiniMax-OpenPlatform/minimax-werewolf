@@ -73,7 +73,7 @@ export const PlayerList = observer(function PlayerList() {
                 key={player.id ?? `player-${index}`}
                 className={clsx(
                   'rounded-lg border p-2',
-                  'flex flex-col items-center gap-1 min-h-[80px]',
+                  'flex flex-col items-center gap-1 min-h-[110px]',
                   player.isAlive
                     ? 'bg-card'
                     : 'bg-muted opacity-60'
@@ -104,6 +104,12 @@ export const PlayerList = observer(function PlayerList() {
                 >
                   {getRoleText(player.role)}
                 </Badge>
+
+                {player.personality && (
+                  <div className="text-xs text-muted-foreground text-center line-clamp-2 mt-1 px-1">
+                    {player.personality}
+                  </div>
+                )}
               </div>
             )
           }

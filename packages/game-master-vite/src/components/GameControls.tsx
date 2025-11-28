@@ -8,34 +8,55 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { gameMaster } from '@/stores/gameStore';
 import { getPlayerUrls } from '@/lib/playerConfig';
+import { GameRulesModal } from './GameRulesModal';
+
+const DEFAULT_PERSONALITIES = [
+  '理性分析型玩家，善于逻辑推理，不轻易相信他人但也不会过度怀疑',
+  '激进冒险型玩家，喜欢主动出击，发言大胆直接，容易带节奏',
+  '谨慎保守型玩家，倾向于观察和跟随，不轻易表态',
+  '幽默风趣型玩家，说话诙谐，善于活跃气氛，但关键时刻也很认真',
+  '沉默寡言型玩家，很少主动发言，但分析问题一针见血',
+  '情绪化玩家，容易被其他人的发言影响，判断有时不够理性'
+];
 
 export const GameControls = observer(function GameControls() {
   const [isLoading, setIsLoading] = useState(false);
+  const [showRules, setShowRules] = useState(false);
+  const [showPersonalityConfig, setShowPersonalityConfig] = useState(false);
+  const [playerPersonalities, setPlayerPersonalities] = useState<string[]>(
+    DEFAULT_PERSONALITIES.slice(0, 6)
+  );
 
   const handleCreateGame = async () => {
     setIsLoading(true);
     try {
       // 获取玩家URL列表
       const playerUrls = getPlayerUrls();
-      
+
       // 创建游戏
       await gameMaster.createGame(playerUrls.length);
-      
-      // 添加AI玩家，ID从1开始
+
+      // 添加AI玩家，ID从1开始，并传递personality
       for (let i = 0; i < playerUrls.length; i++) {
-        await gameMaster.addPlayer(i + 1, playerUrls[i]);
+        await gameMaster.addPlayer(i + 1, playerUrls[i], playerPersonalities[i]);
       }
-      
+
       // 分配角色
       await gameMaster.assignRoles();
-      
+
       console.log(`✅ Game created successfully with ID: ${gameMaster.gameId}`);
-      console.log(`👥 Added ${playerUrls.length} players`);
+      console.log(`👥 Added ${playerUrls.length} players with personalities`);
     } catch (err) {
       console.error('Failed to create game:', err);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const updatePersonality = (index: number, value: string) => {
+    const newPersonalities = [...playerPersonalities];
+    newPersonalities[index] = value;
+    setPlayerPersonalities(newPersonalities);
   };
 
   const handleStartGame = async () => {
@@ -80,6 +101,15 @@ export const GameControls = observer(function GameControls() {
       <CardContent className="space-y-4">
         <div className="flex flex-wrap gap-2 items-center">
           <Button
+            onClick={() => setShowPersonalityConfig(!showPersonalityConfig)}
+            disabled={gameMaster.gameId !== null && gameMaster.players.length > 0}
+            variant="outline"
+            size="sm"
+          >
+            👤 {showPersonalityConfig ? '隐藏' : '配置'}玩家性格
+          </Button>
+
+          <Button
             onClick={handleCreateGame}
             disabled={isLoading || (gameMaster.gameId !== null && gameMaster.players.length > 0)}
             variant="default"
@@ -115,6 +145,14 @@ export const GameControls = observer(function GameControls() {
             结束游戏
           </Button>
 
+          <Button
+            onClick={() => setShowRules(true)}
+            variant="outline"
+            size="sm"
+          >
+            📖 游戏规则
+          </Button>
+
           {gameMaster.gameId && (
             <div className="ml-auto flex items-center space-x-2">
               <span className="text-muted-foreground">游戏ID:</span>
@@ -140,7 +178,39 @@ export const GameControls = observer(function GameControls() {
             </div>
           </div>
         )}
+
+        {showPersonalityConfig && (
+          <div className="border rounded-lg p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold">玩家性格配置</h3>
+              <Button
+                onClick={() => setPlayerPersonalities(DEFAULT_PERSONALITIES.slice(0, 6))}
+                variant="outline"
+                size="sm"
+              >
+                重置默认
+              </Button>
+            </div>
+            <div className="space-y-2">
+              {playerPersonalities.map((personality, index) => (
+                <div key={index} className="space-y-1">
+                  <label className="text-xs text-muted-foreground">
+                    玩家 {index + 1}
+                  </label>
+                  <textarea
+                    value={personality}
+                    onChange={(e) => updatePersonality(index, e.target.value)}
+                    className="w-full px-3 py-2 text-sm border rounded-md bg-background resize-none"
+                    rows={2}
+                    placeholder="输入玩家性格描述..."
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </CardContent>
+      <GameRulesModal isOpen={showRules} onClose={() => setShowRules(false)} />
     </Card>
   );
 });
