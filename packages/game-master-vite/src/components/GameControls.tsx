@@ -171,7 +171,7 @@ export const GameControls = observer(function GameControls() {
             variant="default"
             size="sm"
           >
-            🔑 {showApiKeyConfig ? '隐藏' : '配置'}API Key
+            {showApiKeyConfig ? '隐藏' : '配置'}API Key
           </Button>
 
           <Button
@@ -180,7 +180,7 @@ export const GameControls = observer(function GameControls() {
             variant="default"
             size="sm"
           >
-            👤 {showPersonalityConfig ? '隐藏' : '配置'}玩家性格
+            {showPersonalityConfig ? '隐藏' : '配置'}玩家性格
           </Button>
 
           <Button
@@ -224,7 +224,7 @@ export const GameControls = observer(function GameControls() {
             variant="default"
             size="sm"
           >
-            📖 游戏规则
+            游戏规则
           </Button>
 
           {gameMaster.gameId && (
