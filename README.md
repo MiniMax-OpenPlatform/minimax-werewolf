@@ -297,12 +297,6 @@ bun run typecheck:backend
 
 # 代码规范检查
 bun run lint
-
-# 运行测试
-bun test
-
-# 测试覆盖率
-bun run test:coverage
 ```
 
 ## 📊 监控与调试
