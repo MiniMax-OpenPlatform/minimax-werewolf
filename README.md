@@ -20,6 +20,7 @@
 
 ## 🎯 项目亮点
 
+- **前端 API Key 配置**: 无需配置环境变量，直接在 Web 界面输入 API Key
 - **多模型支持**: 支持 OpenRouter (MiniMax-M2)、Claude、GPT 等多种 AI 模型
 - **详细日志系统**: 记录完整的游戏过程，包括 AI 思考、Trace ID、投票理由等
 - **操作记录**: 实时显示游戏操作日志，方便调试和分析
@@ -93,7 +94,7 @@ minimax-werewolf/
 
 - **Node.js** 18+
 - **Bun** 1.0+
-- **AI API Key**: OpenRouter API Key (推荐) 或 OpenAI API Key
+- **OpenRouter API Key**: 从 [OpenRouter](https://openrouter.ai/keys) 获取（支持 MiniMax、Claude、GPT 等多种模型）
 
 ### 安装步骤
 
@@ -105,18 +106,29 @@ cd minimax-werewolf
 # 2. 安装依赖
 bun install
 
-# 3. 配置环境变量
+# 3. 配置环境变量（可选）
 cp .env.example .env
 ```
 
-### 配置 .env 文件
+### 配置说明
 
+#### API Key 配置（两种方式）
+
+**方式 1：前端界面配置（推荐）** ✨
+- 启动游戏后，在游戏控制面板点击 **"🔑 配置 API Key"**
+- 输入您的 OpenRouter API Key
+- API Key 仅在当前游戏会话中使用，不会被存储
+
+**方式 2：环境变量配置**
 ```bash
-# AI 提供商配置 (OpenRouter 推荐，支持多种模型)
+# 在 .env 文件中配置（可选）
 OPENROUTER_API_KEY=your_openrouter_api_key_here
 AI_MODEL=google/gemini-2.0-flash-exp:free  # 或 anthropic/claude-3.5-sonnet
+```
 
-# Langfuse 遥测配置 (可选，用于 AI 行为追踪)
+#### Langfuse 遥测配置（可选）
+```bash
+# 在 .env 文件中配置
 LANGFUSE_SECRET_KEY=your_secret_key
 LANGFUSE_PUBLIC_KEY=your_public_key
 LANGFUSE_BASEURL=https://us.cloud.langfuse.com
@@ -140,10 +152,11 @@ bun run dev:game
 ### 开始游戏
 
 1. 访问 **http://localhost:3000**
-2. 点击 **"配置玩家性格"** 自定义 AI 玩家个性（可选）
-3. 点击 **"创建新游戏"** - 自动添加 6 个 AI 玩家并分配角色
-4. 点击 **"开始游戏"** - 进入夜晚阶段
-5. 点击 **"下一阶段"** 推进游戏流程
+2. 点击 **"🔑 配置 API Key"** 输入您的 OpenRouter API Key
+3. 点击 **"👤 配置玩家性格"** 自定义 AI 玩家个性（可选）
+4. 点击 **"创建新游戏"** - 自动添加 6 个 AI 玩家并分配角色
+5. 点击 **"开始游戏"** - 进入夜晚阶段
+6. 点击 **"下一阶段"** 推进游戏流程
 
 ## 🎮 游戏玩法
 
@@ -379,6 +392,17 @@ packages/game-master-vite/game-logs/
 
 ## 🙏 致谢
 
+本项目基于 [AI-Werewolf](https://github.com/monad-developers/AI-Werewolf) 开源项目优化定制而来，感谢原作者的贡献！
+
+在原项目基础上，我们进行了以下优化和定制：
+- ✨ 添加了玩家个性化配置系统
+- 🔍 集成 Langfuse AI 行为追踪，支持 Trace ID 显示
+- 📊 增强的游戏历史记录功能
+- 💭 显示 AI 内心独白和思考过程
+- 🎨 优化的 UI/UX 设计
+- 🔧 更灵活的配置系统
+
+同时感谢以下开源项目：
 - [Bun](https://bun.sh) - 快速的 JavaScript 运行时
 - [OpenRouter](https://openrouter.ai) - AI 模型聚合平台
 - [Langfuse](https://langfuse.com) - AI 遥测平台

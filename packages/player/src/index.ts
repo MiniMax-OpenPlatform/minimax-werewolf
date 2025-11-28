@@ -67,25 +67,50 @@ async function flushLangfuseData() {
   }
 }
 
+app.post('/api/player/set-api-key', async (req, res) => {
+  try {
+    console.log('\n=== SET API KEY REQUEST ===');
+    const { apiKey } = req.body;
+
+    if (!apiKey || typeof apiKey !== 'string') {
+      return res.status(400).json({ error: 'Invalid API key' });
+    }
+
+    playerServer.setApiKey(apiKey);
+
+    const response = {
+      message: 'API key set successfully'
+    };
+
+    console.log('Response:', JSON.stringify(response, null, 2));
+    console.log('=== END SET API KEY REQUEST ===\n');
+
+    res.json(response);
+  } catch (error) {
+    console.error('Set API key error:', error);
+    res.status(500).json({ error: 'Failed to set API key' });
+  }
+});
+
 app.post('/api/player/start-game', async (req, res) => {
   try {
     console.log('\n=== START GAME REQUEST ===');
     console.log('Request body:', JSON.stringify(req.body, null, 2));
-    
+
     // 直接使用 StartGameParams 类型，不验证输入
     const params: StartGameParams = req.body;
     // 直接使用params，不需要解构
-    
+
     await playerServer.startGame(params);
-    
+
     const response = {
       message: 'Game started successfully',
       langfuseEnabled: true // 总是启用，使用gameId作为trace
     };
-    
+
     console.log('Response:', JSON.stringify(response, null, 2));
     console.log('=== END START GAME REQUEST ===\n');
-    
+
     res.json(response);
   } catch (error) {
     console.error('Start game error:', error);

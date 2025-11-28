@@ -23,6 +23,8 @@ export const GameControls = observer(function GameControls() {
   const [isLoading, setIsLoading] = useState(false);
   const [showRules, setShowRules] = useState(false);
   const [showPersonalityConfig, setShowPersonalityConfig] = useState(false);
+  const [showApiKeyConfig, setShowApiKeyConfig] = useState(false);
+  const [apiKey, setApiKey] = useState<string>('');
   const [playerPersonalities, setPlayerPersonalities] = useState<string[]>(
     DEFAULT_PERSONALITIES.slice(0, 6)
   );
@@ -30,8 +32,38 @@ export const GameControls = observer(function GameControls() {
   const handleCreateGame = async () => {
     setIsLoading(true);
     try {
+      // 检查 API key
+      if (!apiKey || apiKey.trim() === '') {
+        alert('请先输入 OpenRouter API Key！');
+        setShowApiKeyConfig(true);
+        return;
+      }
+
       // 获取玩家URL列表
       const playerUrls = getPlayerUrls();
+
+      // 为每个玩家服务器设置 API key
+      console.log('🔑 Setting API key for all player servers...');
+      for (let i = 0; i < playerUrls.length; i++) {
+        try {
+          const response = await fetch(`${playerUrls[i]}/api/player/set-api-key`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ apiKey: apiKey.trim() })
+          });
+
+          if (!response.ok) {
+            throw new Error(`Failed to set API key for player ${i + 1}`);
+          }
+          console.log(`✅ API key set for player ${i + 1}`);
+        } catch (error) {
+          console.error(`❌ Failed to set API key for player ${i + 1}:`, error);
+          alert(`无法为玩家${i + 1}设置API Key，请检查服务器是否运行正常`);
+          return;
+        }
+      }
 
       // 创建游戏
       await gameMaster.createGame(playerUrls.length);
@@ -100,6 +132,15 @@ export const GameControls = observer(function GameControls() {
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex flex-wrap gap-2 items-center">
+          <Button
+            onClick={() => setShowApiKeyConfig(!showApiKeyConfig)}
+            disabled={gameMaster.gameId !== null && gameMaster.players.length > 0}
+            variant="outline"
+            size="sm"
+          >
+            🔑 {showApiKeyConfig ? '隐藏' : '配置'}API Key
+          </Button>
+
           <Button
             onClick={() => setShowPersonalityConfig(!showPersonalityConfig)}
             disabled={gameMaster.gameId !== null && gameMaster.players.length > 0}
@@ -175,6 +216,32 @@ export const GameControls = observer(function GameControls() {
                   {getPhaseText(gameState.currentPhase)}
                 </Badge>
               </div>
+            </div>
+          </div>
+        )}
+
+        {showApiKeyConfig && (
+          <div className="border rounded-lg p-4 space-y-3 bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold">OpenRouter API Key 配置</h3>
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs text-muted-foreground">
+                请输入您的 OpenRouter API Key（支持 MiniMax、Claude、GPT 等模型）
+              </label>
+              <input
+                type="password"
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                className="w-full px-3 py-2 text-sm border rounded-md bg-background"
+                placeholder="sk-or-v1-..."
+              />
+              <p className="text-xs text-muted-foreground">
+                💡 提示：您可以从 <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline">OpenRouter</a> 获取 API Key
+              </p>
+              <p className="text-xs text-amber-600 dark:text-amber-400">
+                ⚠️ API Key 仅在本次游戏会话中使用，不会被存储
+              </p>
             </div>
           </div>
         )}

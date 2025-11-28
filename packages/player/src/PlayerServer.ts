@@ -44,9 +44,15 @@ export class PlayerServer {
   private teammates?: PlayerId[];
   private config: PlayerConfig;
   private thinkingHistory: string[] = []; // 存储玩家的内心独白历史
+  private runtimeApiKey?: string; // 运行时设置的 API key
 
   constructor(config: PlayerConfig) {
     this.config = config;
+  }
+
+  setApiKey(apiKey: string): void {
+    this.runtimeApiKey = apiKey;
+    console.log('🔑 Runtime API key has been set');
   }
 
   async startGame(params: StartGameParams): Promise<void> {
@@ -388,10 +394,16 @@ export class PlayerServer {
 
     const providerName = this.config.ai.provider || 'openrouter';
 
+    // API key 优先级：运行时设置 > 配置文件 > 环境变量
+    const apiKey = this.runtimeApiKey
+      || this.config.ai.apiKey
+      || process.env.OPENROUTER_API_KEY
+      || process.env.OPENAI_API_KEY;
+
     const aiProvider = createOpenAICompatible({
       name: providerName,
       baseURL: baseURL,
-      apiKey: this.config.ai.apiKey || process.env.OPENROUTER_API_KEY || process.env.OPENAI_API_KEY,
+      apiKey: apiKey,
       headers: {
         'HTTP-Referer': 'https://mojo.monad.xyz',
         'X-Title': 'AI Werewolf Game',
