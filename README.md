@@ -2,7 +2,7 @@
 
 一个基于 AI 的多人狼人杀游戏框架，采用 monorepo 架构，支持多个具有独特个性的 AI 玩家进行游戏。使用 MiniMax AI 模型驱动，提供完整的游戏体验和详细的行为追踪。
 
-[![GitHub Stars](https://img.shields.io/github/stars/backearth1/minimax-werewolf?style=social)](https://github.com/backearth1/minimax-werewolf)
+[![GitHub Stars](https://img.shields.io/github/stars/MiniMax-OpenPlatform/minimax-werewolf?style=social)](https://github.com/MiniMax-OpenPlatform/minimax-werewolf)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Bun](https://img.shields.io/badge/Bun-1.0+-black?logo=bun)](https://bun.sh)
 
@@ -100,7 +100,7 @@ minimax-werewolf/
 
 ```bash
 # 1. 克隆仓库
-git clone https://github.com/backearth1/minimax-werewolf.git
+git clone https://github.com/MiniMax-OpenPlatform/minimax-werewolf.git
 cd minimax-werewolf
 
 # 2. 安装依赖
@@ -412,8 +412,8 @@ packages/game-master-vite/game-logs/
 
 ## 📞 联系方式
 
-- GitHub Issues: [提交问题](https://github.com/backearth1/minimax-werewolf/issues)
-- GitHub Discussions: [讨论区](https://github.com/backearth1/minimax-werewolf/discussions)
+- GitHub Issues: [提交问题](https://github.com/MiniMax-OpenPlatform/minimax-werewolf/issues)
+- GitHub Discussions: [讨论区](https://github.com/MiniMax-OpenPlatform/minimax-werewolf/discussions)
 
 ---
 
