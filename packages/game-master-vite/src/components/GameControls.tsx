@@ -171,10 +171,11 @@ export const GameControls = observer(function GameControls() {
           <Button
             onClick={handleNextPhase}
             disabled={isLoading || !canAdvance}
-            variant="secondary"
-            size="sm"
+            variant="default"
+            size="default"
+            className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-200"
           >
-            {isLoading && canAdvance ? '切换中...' : '下一阶段'}
+            {isLoading && canAdvance ? '⏳ 切换中...' : '▶️ 下一阶段'}
           </Button>
 
           <Button
