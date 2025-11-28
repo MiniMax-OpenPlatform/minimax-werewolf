@@ -34,7 +34,7 @@ export const GameControls = observer(function GameControls() {
     try {
       // 检查 API key
       if (!apiKey || apiKey.trim() === '') {
-        alert('请先输入 OpenRouter API Key！');
+        alert('请先输入 MiniMax API Key！');
         setShowApiKeyConfig(true);
         return;
       }
@@ -223,21 +223,21 @@ export const GameControls = observer(function GameControls() {
         {showApiKeyConfig && (
           <div className="border rounded-lg p-4 space-y-3 bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold">OpenRouter API Key 配置</h3>
+              <h3 className="text-sm font-semibold">MiniMax API Key 配置</h3>
             </div>
             <div className="space-y-2">
               <label className="text-xs text-muted-foreground">
-                请输入您的 OpenRouter API Key（支持 MiniMax、Claude、GPT 等模型）
+                请输入您的 MiniMax API Key（使用 MiniMax-M2 模型）
               </label>
               <input
                 type="password"
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
                 className="w-full px-3 py-2 text-sm border rounded-md bg-background"
-                placeholder="sk-or-v1-..."
+                placeholder="eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..."
               />
               <p className="text-xs text-muted-foreground">
-                💡 提示：您可以从 <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline">OpenRouter</a> 获取 API Key
+                💡 提示：您可以从 <a href="https://platform.minimaxi.com" target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline">MiniMax 开放平台</a> 获取 API Key
               </p>
               <p className="text-xs text-amber-600 dark:text-amber-400">
                 ⚠️ API Key 仅在本次游戏会话中使用，不会被存储

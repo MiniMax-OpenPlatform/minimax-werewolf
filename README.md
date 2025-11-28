@@ -1,6 +1,6 @@
 # 🐺 MiniMax Werewolf - AI 狼人杀游戏框架
 
-一个基于 AI 的多人狼人杀游戏框架，采用 monorepo 架构，支持多个具有独特个性的 AI 玩家进行游戏。使用 MiniMax、Claude 等先进 AI 模型驱动，提供完整的游戏体验和详细的行为追踪。
+一个基于 AI 的多人狼人杀游戏框架，采用 monorepo 架构，支持多个具有独特个性的 AI 玩家进行游戏。使用 MiniMax AI 模型驱动，提供完整的游戏体验和详细的行为追踪。
 
 [![GitHub Stars](https://img.shields.io/github/stars/backearth1/minimax-werewolf?style=social)](https://github.com/backearth1/minimax-werewolf)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
@@ -20,8 +20,8 @@
 
 ## 🎯 项目亮点
 
-- **前端 API Key 配置**: 无需配置环境变量，直接在 Web 界面输入 API Key
-- **多模型支持**: 支持 OpenRouter (MiniMax-M2)、Claude、GPT 等多种 AI 模型
+- **前端 API Key 配置**: 无需配置环境变量，直接在 Web 界面输入 MiniMax API Key
+- **MiniMax AI 驱动**: 使用 MiniMax-M2 模型提供智能对话和推理能力
 - **详细日志系统**: 记录完整的游戏过程，包括 AI 思考、Trace ID、投票理由等
 - **操作记录**: 实时显示游戏操作日志，方便调试和分析
 - **玩家对话**: 分别显示公开发言、内心独白和 Trace ID
@@ -33,7 +33,7 @@
 - **前端**: Vite + React + MobX + TailwindCSS
 - **后端**: Express + TypeScript
 - **AI 服务**:
-  - OpenRouter (MiniMax-M2, Claude, GPT 等)
+  - MiniMax AI (MiniMax-M2 模型)
   - 自定义个性系统
   - Structured Outputs (Zod Schema)
 - **监控**: Langfuse 遥测与追踪
@@ -94,7 +94,7 @@ minimax-werewolf/
 
 - **Node.js** 18+
 - **Bun** 1.0+
-- **OpenRouter API Key**: 从 [OpenRouter](https://openrouter.ai/keys) 获取（支持 MiniMax、Claude、GPT 等多种模型）
+- **MiniMax API Key**: 从 [MiniMax 开放平台](https://platform.minimaxi.com) 获取
 
 ### 安装步骤
 
@@ -116,14 +116,15 @@ cp .env.example .env
 
 **方式 1：前端界面配置（推荐）** ✨
 - 启动游戏后，在游戏控制面板点击 **"🔑 配置 API Key"**
-- 输入您的 OpenRouter API Key
+- 输入您的 MiniMax API Key
 - API Key 仅在当前游戏会话中使用，不会被存储
 
 **方式 2：环境变量配置**
 ```bash
 # 在 .env 文件中配置（可选）
-OPENROUTER_API_KEY=your_openrouter_api_key_here
-AI_MODEL=google/gemini-2.0-flash-exp:free  # 或 anthropic/claude-3.5-sonnet
+OPENROUTER_API_KEY=your_minimax_api_key_here
+AI_MODEL=MiniMax-M2
+AI_BASE_URL=https://api.minimaxi.com/v1
 ```
 
 #### Langfuse 遥测配置（可选）
@@ -152,7 +153,7 @@ bun run dev:game
 ### 开始游戏
 
 1. 访问 **http://localhost:3000**
-2. 点击 **"🔑 配置 API Key"** 输入您的 OpenRouter API Key
+2. 点击 **"🔑 配置 API Key"** 输入您的 MiniMax API Key
 3. 点击 **"👤 配置玩家性格"** 自定义 AI 玩家个性（可选）
 4. 点击 **"创建新游戏"** - 自动添加 6 个 AI 玩家并分配角色
 5. 点击 **"开始游戏"** - 进入夜晚阶段
@@ -402,9 +403,9 @@ packages/game-master-vite/game-logs/
 - 🎨 优化的 UI/UX 设计
 - 🔧 更灵活的配置系统
 
-同时感谢以下开源项目：
+同时感谢以下开源项目和服务：
+- [MiniMax AI](https://www.minimaxi.com) - 强大的 AI 大模型服务
 - [Bun](https://bun.sh) - 快速的 JavaScript 运行时
-- [OpenRouter](https://openrouter.ai) - AI 模型聚合平台
 - [Langfuse](https://langfuse.com) - AI 遥测平台
 - [React](https://react.dev) - UI 框架
 - [MobX](https://mobx.js.org) - 状态管理
