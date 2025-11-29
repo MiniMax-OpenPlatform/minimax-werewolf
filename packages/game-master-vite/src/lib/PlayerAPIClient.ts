@@ -25,12 +25,13 @@ export class PlayerAPIClient {
   private async call(endpoint: 'vote', params: PlayerContext): Promise<VotingResponseType>;
   private async call(endpoint: 'use-ability', params: PlayerContext): Promise<NightActionResponseType | null>;
   private async call(
-    endpoint: 'use-ability' | 'speak' | 'vote' | 'start-game', 
+    endpoint: 'use-ability' | 'speak' | 'vote' | 'start-game',
     params: PlayerContext | StartGameParams
   ): Promise<unknown> {
     return pRetry(
       async () => {
-        const response = await fetch(`${this.url}/api/player/${endpoint}`, {
+        // 新架构：/api/players/:playerId/:endpoint
+        const response = await fetch(`${this.url}/api/players/${this.playerId}/${endpoint}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(params),

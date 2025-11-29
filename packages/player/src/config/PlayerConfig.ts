@@ -11,9 +11,9 @@ export interface PlayerConfig {
     model: string;
     maxTokens: number;
     temperature: number;
-    provider: 'openrouter' | 'openai';
+    provider: 'minimax';
     apiKey?: string;
-    baseURL?: string;  // 新增：支持自定义 API 基础 URL
+    baseURL?: string;
   };
   game: {
     personality: string;
@@ -30,10 +30,11 @@ export const DEFAULT_CONFIG: PlayerConfig = {
     host: '0.0.0.0'
   },
   ai: {
-    model: 'gpt-3.5-turbo',
+    model: 'MiniMax-M2',
     maxTokens: 150,
     temperature: 0.8,
-    provider: 'openai'
+    provider: 'minimax',
+    baseURL: 'https://api.minimaxi.com/v1'
   },
   game: {
     personality: '理性分析型玩家，善于逻辑推理',
@@ -113,12 +114,9 @@ export class ConfigLoader {
     if (process.env.AI_BASE_URL) {
       config.ai.baseURL = process.env.AI_BASE_URL;
     }
-    if (process.env.OPENROUTER_API_KEY) {
-      config.ai.provider = 'openrouter';
-      config.ai.apiKey = process.env.OPENROUTER_API_KEY;
-    } else if (process.env.OPENAI_API_KEY) {
-      config.ai.provider = 'openai';
-      config.ai.apiKey = process.env.OPENAI_API_KEY;
+    if (process.env.MINIMAX_API_KEY) {
+      config.ai.provider = 'minimax';
+      config.ai.apiKey = process.env.MINIMAX_API_KEY;
     }
 
     // 游戏配置

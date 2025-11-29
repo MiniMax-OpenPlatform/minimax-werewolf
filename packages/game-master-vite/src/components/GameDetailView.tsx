@@ -240,6 +240,21 @@ export function GameDetailView({ gameId, onBack }: GameDetailViewProps) {
                     </span>
                   </div>
                   <p className="text-sm">理由: {vote.reason}</p>
+                  {vote.thinking && (
+                    <details className="mt-2">
+                      <summary className="text-xs text-muted-foreground cursor-pointer">
+                        💭 查看内心独白
+                      </summary>
+                      <p className="text-xs text-muted-foreground mt-1 ml-4">
+                        {vote.thinking}
+                      </p>
+                    </details>
+                  )}
+                  {vote.traceId && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      🔖 Trace ID: {vote.traceId}
+                    </p>
+                  )}
                 </div>
               ))}
             </div>
@@ -286,6 +301,21 @@ export function GameDetailView({ gameId, onBack }: GameDetailViewProps) {
                     {action.healReason && <p>解药理由: {action.healReason}</p>}
                     {action.poisonReason && <p>毒药理由: {action.poisonReason}</p>}
                   </div>
+                  {action.thinking && (
+                    <details className="mt-2">
+                      <summary className="text-xs text-muted-foreground cursor-pointer">
+                        💭 查看内心独白
+                      </summary>
+                      <p className="text-xs text-muted-foreground mt-1 ml-4">
+                        {action.thinking}
+                      </p>
+                    </details>
+                  )}
+                  {action.traceId && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      🔖 Trace ID: {action.traceId}
+                    </p>
+                  )}
                 </div>
               ))}
             </div>

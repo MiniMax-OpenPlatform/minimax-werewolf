@@ -2,12 +2,12 @@
 
 import { useState } from 'react';
 import { observer } from 'mobx-react-lite';
-import { GamePhase, DEFAULT_GAME_RULES, generateGameRulesText, type GameRules } from '@ai-werewolf/types';
+import { GamePhase, generateGameRulesText, type GameRules } from '@ai-werewolf/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { gameMaster } from '@/stores/gameStore';
-import { getPlayerUrls } from '@/lib/playerConfig';
+import { getPlayerServiceUrl } from '@/lib/playerConfig';
 import { GameRulesModal } from './GameRulesModal';
 
 const DEFAULT_PERSONALITIES = [
@@ -39,8 +39,9 @@ export const GameControls = observer(function GameControls() {
         return;
       }
 
-      // 获取玩家URL列表
-      const playerUrls = getPlayerUrls();
+      // 获取玩家服务URL
+      const playerServiceUrl = getPlayerServiceUrl();
+      const playerCount = playerPersonalities.length;
 
       // 读取自定义游戏规则
       let customRulesText: string | null = null;
@@ -58,59 +59,90 @@ export const GameControls = observer(function GameControls() {
         console.log('📜 Falling back to default game rules');
       }
 
-      // 为每个玩家服务器设置 API key 和自定义规则
-      console.log('🔑 Setting API key and custom rules for all player servers...');
-      for (let i = 0; i < playerUrls.length; i++) {
+      // 为所有玩家设置 API key（单次调用）
+      console.log('🔑 Setting API key for all players...');
+      try {
+        const apiKeyResponse = await fetch(`${playerServiceUrl}/api/config/api-key`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ apiKey: apiKey.trim() })
+        });
+
+        if (!apiKeyResponse.ok) {
+          throw new Error('Failed to set API key for players');
+        }
+        console.log('✅ API key set for all players');
+      } catch (error) {
+        console.error('❌ Failed to set API key:', error);
+        alert('无法设置 API Key，请检查服务器是否运行正常');
+        return;
+      }
+
+      // 设置自定义规则（如果有）
+      if (customRulesText) {
+        console.log('📜 Setting custom rules for all players...');
         try {
-          // 设置 API key
-          const apiKeyResponse = await fetch(`${playerUrls[i]}/api/player/set-api-key`, {
+          const rulesResponse = await fetch(`${playerServiceUrl}/api/config/rules`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ apiKey: apiKey.trim() })
+            body: JSON.stringify({ rules: customRulesText })
           });
 
-          if (!apiKeyResponse.ok) {
-            throw new Error(`Failed to set API key for player ${i + 1}`);
+          if (!rulesResponse.ok) {
+            throw new Error('Failed to set custom rules');
           }
-          console.log(`✅ API key set for player ${i + 1}`);
-
-          // 设置自定义规则（如果有）
-          if (customRulesText) {
-            const rulesResponse = await fetch(`${playerUrls[i]}/api/player/set-rules`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({ rules: customRulesText })
-            });
-
-            if (!rulesResponse.ok) {
-              throw new Error(`Failed to set custom rules for player ${i + 1}`);
-            }
-            console.log(`✅ Custom rules set for player ${i + 1}`);
-          }
+          console.log('✅ Custom rules set for all players');
         } catch (error) {
-          console.error(`❌ Failed to configure player ${i + 1}:`, error);
-          alert(`无法为玩家${i + 1}配置设置，请检查服务器是否运行正常`);
+          console.error('❌ Failed to set custom rules:', error);
+          alert('无法设置自定义规则，请检查服务器是否运行正常');
+          return;
+        }
+      }
+
+      // 创建所有玩家实例
+      console.log(`👥 Creating ${playerCount} players...`);
+      for (let i = 0; i < playerCount; i++) {
+        try {
+          const playerId = i + 1;
+          const createResponse = await fetch(`${playerServiceUrl}/api/players`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              playerId,
+              personality: playerPersonalities[i]
+            })
+          });
+
+          if (!createResponse.ok) {
+            throw new Error(`Failed to create player ${playerId}`);
+          }
+          console.log(`✅ Created player ${playerId}`);
+        } catch (error) {
+          console.error(`❌ Failed to create player ${i + 1}:`, error);
+          alert(`无法创建玩家${i + 1}，请检查服务器是否运行正常`);
           return;
         }
       }
 
       // 创建游戏
-      await gameMaster.createGame(playerUrls.length);
+      await gameMaster.createGame(playerCount);
 
-      // 添加AI玩家，ID从1开始，并传递personality
-      for (let i = 0; i < playerUrls.length; i++) {
-        await gameMaster.addPlayer(i + 1, playerUrls[i], playerPersonalities[i]);
+      // 添加AI玩家，ID从1开始，使用单一服务URL
+      for (let i = 0; i < playerCount; i++) {
+        await gameMaster.addPlayer(i + 1, playerServiceUrl, playerPersonalities[i]);
       }
 
       // 分配角色
       await gameMaster.assignRoles();
 
       console.log(`✅ Game created successfully with ID: ${gameMaster.gameId}`);
-      console.log(`👥 Added ${playerUrls.length} players with personalities`);
+      console.log(`👥 Added ${playerCount} players with personalities`);
     } catch (err) {
       console.error('Failed to create game:', err);
     } finally {

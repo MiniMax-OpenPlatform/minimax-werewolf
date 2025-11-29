@@ -22,7 +22,8 @@ export function GameHistoryList({ onViewDetail }: GameHistoryListProps) {
         throw new Error('Failed to load game history');
       }
       const data = await response.json();
-      setGames(data);
+      // 后端返回 { total: number, logs: GameLogSummary[] }
+      setGames(data.logs || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
@@ -40,7 +41,7 @@ export function GameHistoryList({ onViewDetail }: GameHistoryListProps) {
     }
 
     try {
-      const response = await fetch(`/api/game-logs/${gameId}/delete`, {
+      const response = await fetch(`/api/game-logs/${gameId}`, {
         method: 'DELETE'
       });
       if (!response.ok) {

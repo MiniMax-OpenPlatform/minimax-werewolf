@@ -325,16 +325,18 @@ export function getAITelemetryConfig(
     }
     
     // 返回 experimental_telemetry 配置
+    // 注意：metadata会被转换成HTTP headers，所以不能包含非ASCII字符
     return {
       isEnabled: true,
       functionId: `player-${playerId}-${functionId}`,
       metadata: {
         langfuseTraceId: traceId,  // 链接到阶段 trace
         langfuseUpdateParent: false, // 不更新父 trace
-        gameId,
-        playerId,
-        phase: context?.currentPhase,
-        round: context?.round,
+        gameId: String(gameId),  // 确保是字符串
+        playerId: String(playerId),  // 确保是字符串
+        // phase可能包含中文，暂时不传递以避免编码问题
+        // phase: context?.currentPhase,
+        round: String(context?.round || ''),  // 转换为字符串
         timestamp: new Date().toISOString()
       }
     };

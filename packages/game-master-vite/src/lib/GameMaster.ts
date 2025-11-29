@@ -206,7 +206,7 @@ export class GameMaster {
     this.operationLogSystem.logPhaseChange('夜晚', 1);
 
     // 添加游戏开始的系统通知
-    await this.addSpeech(-1, '🌟 游戏开始！进入第1天夜晚阶段。', 'system');
+    await this.addSpeech(-1, '[系统] 游戏开始！进入第1天夜晚阶段。', 'system');
 
     // 通知所有AI玩家游戏开始和他们的角色
     await this.notifyPlayersGameStart();
@@ -438,7 +438,7 @@ export class GameMaster {
 
       // 添加死亡公告
       const victimNames = deaths.map(id => this.players.find(p => p.id === id)?.id).filter(Boolean);
-      await this.addSpeech(-1, `💀 昨晚 ${victimNames.join('、')} 死亡了！`, 'system');
+      await this.addSpeech(-1, `[系统] 昨晚 ${victimNames.join('、')} 死亡了！`, 'system');
       
       // 检查游戏是否结束
       const winCondition = await this.getWinCondition();
@@ -458,27 +458,43 @@ export class GameMaster {
 
   private async triggerDayActions(): Promise<void> {
     console.log(`☀️ Day phase - triggering discussion`);
+    console.log(`Total players: ${this.players.length}, Alive: ${this.alivePlayers.length}`);
 
     // 让所有存活玩家发言
     for (let i = 0; i < this.players.length; i++) {
       const player = this.players[i];
-      if (!player.isAlive) continue;
+      console.log(`Checking player ${player.id}: isAlive=${player.isAlive}`);
+
+      if (!player.isAlive) {
+        console.log(`Skipping dead player ${player.id}`);
+        continue;
+      }
 
       console.log(`💬 Asking ${player.id} to speak in day discussion`);
       this.operationLogSystem.logPlayerRequest(player.id, '发言');
 
-      const result = await player.speak(this);
-      if (result) {
-        // 记录发言结果
-        this.operationLogSystem.logPlayerResponse(player.id, '发言', `"${result.speech}"`);
+      try {
+        console.log(`Calling player.speak() for player ${player.id}...`);
+        const result = await player.speak(this);
+        console.log(`Player ${player.id} speak result:`, result);
 
-        // 添加玩家发言（包括内心独白和traceId）
-        await this.addSpeech(player.id, result.speech, 'player', result.thinking, result.traceId);
-      } else {
-        this.operationLogSystem.logResult(`${player.id} 发言失败`);
+        if (result) {
+          // 记录发言结果
+          this.operationLogSystem.logPlayerResponse(player.id, '发言', `"${result.speech}"`);
+
+          // 添加玩家发言（包括内心独白和traceId）
+          await this.addSpeech(player.id, result.speech, 'player', result.thinking, result.traceId);
+        } else {
+          console.warn(`Player ${player.id} returned null response`);
+          this.operationLogSystem.logResult(`${player.id} 发言失败`);
+        }
+      } catch (error) {
+        console.error(`❌ Player ${player.id} speak failed:`, error);
+        this.operationLogSystem.logResult(`${player.id} 发言失败: ${error}`);
       }
     }
 
+    console.log(`✅ Day phase discussion completed`);
     // 白天阶段完成
     this.operationLogSystem.logPhaseComplete('白天', '☀️ 白天阶段完成，所有玩家发言已结束，可以进入投票阶段');
   }
@@ -508,7 +524,7 @@ export class GameMaster {
         // 添加投票信息到聊天显示（包括内心独白和traceId）
         await this.addSpeech(
           player.id,
-          `🗳️ 投票给 ${result.target}号玩家。理由：${result.reason}`,
+          `[投票] 投票给 ${result.target}号玩家。理由：${result.reason}`,
           'player',
           result.thinking,
           result.traceId
@@ -549,7 +565,7 @@ export class GameMaster {
         this.operationLogSystem.logResult(`${eliminatedPlayer.id} 被投票淘汰！`);
 
         // 添加淘汰公告
-        await this.addSpeech(-1, `⚰️ ${eliminatedPlayer.id} 被投票淘汰了！`, 'system');
+        await this.addSpeech(-1, `[系统] ${eliminatedPlayer.id} 被投票淘汰了！`, 'system');
         
         // 检查游戏是否结束
         const winCondition = await this.getWinCondition();
@@ -795,11 +811,11 @@ export class GameMaster {
       let reason = '';
 
       if (winCondition === WinCondition.WEREWOLVES_WIN) {
-        await this.addSpeech(-1, '🐺 游戏结束！狼人获胜！', 'system');
+        await this.addSpeech(-1, '[系统] 游戏结束！狼人获胜！', 'system');
         winner = 'werewolf';
         reason = '狼人数量达到或超过好人数量';
       } else if (winCondition === WinCondition.VILLAGERS_WIN) {
-        await this.addSpeech(-1, '👥 游戏结束！好人获胜！', 'system');
+        await this.addSpeech(-1, '[系统] 游戏结束！好人获胜！', 'system');
         winner = 'villager';
         reason = '所有狼人被淘汰';
       }

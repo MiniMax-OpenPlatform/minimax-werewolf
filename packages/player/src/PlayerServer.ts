@@ -18,9 +18,7 @@ import {
   GAME_RULES_TEXT
 } from '@ai-werewolf/types';
 import { WerewolfPrompts } from './prompts';
-import { generateObject, generateText } from 'ai';
-import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
-import { 
+import {
   getAITelemetryConfig,
   createGameSession,
   createPhaseTrace,
@@ -86,7 +84,17 @@ export class PlayerServer {
   }
 
   async speak(context: PlayerContext): Promise<SpeechResponseType> {
-    if (!this.role || !this.config.ai.apiKey) {
+    // Debug logging
+    console.log(`[speak] Player ${this.playerId} - role: ${this.role}, hasApiKey: ${!!(this.runtimeApiKey || this.config.ai.apiKey)}`);
+
+    if (!this.role) {
+      console.warn(`[speak] Player ${this.playerId} - No role assigned, returning fallback`);
+      return { speech: "我需要仔细思考一下当前的情况。" };
+    }
+
+    const effectiveApiKey = this.runtimeApiKey || this.config.ai.apiKey;
+    if (!effectiveApiKey) {
+      console.warn(`[speak] Player ${this.playerId} - No API key set, returning fallback`);
       return { speech: "我需要仔细思考一下当前的情况。" };
     }
 
@@ -95,7 +103,17 @@ export class PlayerServer {
   }
 
   async vote(context: PlayerContext): Promise<VotingResponseType> {
-    if (!this.role || !this.config.ai.apiKey) {
+    // Debug logging
+    console.log(`[vote] Player ${this.playerId} - role: ${this.role}, hasApiKey: ${!!(this.runtimeApiKey || this.config.ai.apiKey)}`);
+
+    if (!this.role) {
+      console.warn(`[vote] Player ${this.playerId} - No role assigned, returning fallback`);
+      return { target: 1, reason: "默认投票给玩家1" };
+    }
+
+    const effectiveApiKey = this.runtimeApiKey || this.config.ai.apiKey;
+    if (!effectiveApiKey) {
+      console.warn(`[vote] Player ${this.playerId} - No API key set, returning fallback`);
       return { target: 1, reason: "默认投票给玩家1" };
     }
 
@@ -103,7 +121,9 @@ export class PlayerServer {
   }
 
   async useAbility(context: PlayerContext | WitchContext | SeerContext): Promise<any> {
-    if (!this.role || !this.config.ai.apiKey) {
+    // 检查有效的 API key（运行时设置优先）
+    const effectiveApiKey = this.runtimeApiKey || this.config.ai.apiKey;
+    if (!this.role || !effectiveApiKey) {
       throw new Error("我没有特殊能力可以使用。");
     }
 
@@ -156,7 +176,7 @@ export class PlayerServer {
     const thinkMatch = text.match(/<think>([\s\S]*?)<\/think>/);
     if (thinkMatch) {
       thinking = thinkMatch[1].trim();
-      console.log(`💭 AI思考过程:\n${thinking}`);
+      console.log(`[AI Thinking]:\n${thinking}`);
     }
 
     // 移除<think>...</think>标签及其内容，获取JSON部分
@@ -193,8 +213,8 @@ export class PlayerServer {
   ): Promise<T> {
     const { functionId, context, schema, prompt, maxOutputTokens, temperature } = params;
 
-    console.log(`📝 ${functionId} prompt:`, prompt);
-    console.log(`📋 ${functionId} schema:`, JSON.stringify(schema.shape, null, 2));
+    console.log(`[${functionId}] prompt:`, prompt);
+    console.log(`[${functionId}] schema:`, JSON.stringify(schema.shape, null, 2));
 
     // 获取遥测配置
     const telemetryConfig = this.getTelemetryConfig(functionId, context);
@@ -203,50 +223,71 @@ export class PlayerServer {
       // 使用自定义规则或默认规则
       const gameRules = this.customRules || GAME_RULES_TEXT;
 
-      // 使用generateText获取原始响应，然后手动解析
-      const result = await generateText({
-        model: this.getModel(),
-        system: gameRules,
-        prompt: prompt + '\n\n请直接返回JSON格式的结果，不要包含其他说明文字。',
-        temperature: temperature ?? this.config.ai.temperature,
-        // 使用 experimental_telemetry（只有在有配置时才传递）
-        ...(telemetryConfig && { experimental_telemetry: telemetryConfig }),
-      });
+      // 直接使用fetch调用MiniMax API
+      const apiKey = this.runtimeApiKey || this.config.ai.apiKey || process.env.MINIMAX_API_KEY;
+      const baseURL = this.config.ai.baseURL || process.env.AI_BASE_URL || 'https://api.minimaxi.com/v1';
 
-      console.log(`📄 ${functionId} raw response:`, result.text);
+      console.log(`[${functionId}] baseURL:`, baseURL);
+      console.log(`[${functionId}] model:`, this.config.ai.model);
+      console.log(`[${functionId}] apiKey length:`, apiKey?.length, 'first 20 chars:', apiKey?.substring(0, 20));
 
-      // 提取trace_id（从response metadata中获取）
-      let traceId: string | undefined;
+      const headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+        'HTTP-Referer': 'https://mojo.monad.xyz',
+        'X-Title': 'AI Werewolf Game',
+      };
 
-      // 尝试从不同来源获取trace_id
-      if ((result as any).experimental_providerMetadata) {
-        // 从provider metadata获取
-        const metadata = (result as any).experimental_providerMetadata;
-        traceId = metadata?.traceId || metadata?.requestId || metadata?.['trace-id'];
+      console.log(`[${functionId}] headers:`, JSON.stringify(headers, null, 2));
+
+      // 配置代理
+      const fetchOptions: RequestInit = {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify({
+          model: this.config.ai.model,
+          messages: [
+            { role: 'system', content: gameRules },
+            { role: 'user', content: prompt + '\n\n请直接返回JSON格式的结果，不要包含其他说明文字。' }
+          ],
+          temperature: temperature ?? this.config.ai.temperature,
+          max_tokens: maxOutputTokens,
+        }),
+      };
+
+      // 如果配置了代理，使用 ProxyAgent
+      const proxyUrl = process.env.https_proxy || process.env.http_proxy;
+      if (proxyUrl) {
+        console.log(`[${functionId}] Using proxy:`, proxyUrl);
+        const { ProxyAgent } = await import('undici');
+        (fetchOptions as any).dispatcher = new ProxyAgent(proxyUrl);
       }
 
-      // 如果没有找到，尝试从response headers获取
-      if (!traceId && (result as any).response?.headers) {
-        const headers = (result as any).response.headers;
-        traceId = headers?.get?.('trace-id') || headers?.get?.('x-trace-id') || headers?.get?.('x-request-id');
+      const response = await fetch(`${baseURL}/chat/completions`, fetchOptions);
+
+      if (!response.ok) {
+        throw new Error(`API request failed: ${response.status} ${response.statusText}`);
       }
 
-      // 如果还是没有，使用result中的其他标识符
-      if (!traceId && (result as any).response) {
-        const response = (result as any).response;
-        traceId = response.id || response.requestId;
-      }
+      // 从响应 headers 中获取 Trace-Id
+      const traceId = response.headers.get('Trace-Id')
+        || response.headers.get('trace-id')
+        || response.headers.get('X-Trace-Id')
+        || response.headers.get('x-trace-id')
+        || response.headers.get('X-Request-Id')
+        || response.headers.get('x-request-id')
+        || `${functionId}-${Date.now()}-${Math.random().toString(36).substring(7)}`;
 
-      // 生成fallback trace_id（使用时间戳+随机数）
-      if (!traceId) {
-        traceId = `${functionId}-${Date.now()}-${Math.random().toString(36).substring(7)}`;
-      }
+      console.log(`[${functionId}] Trace-ID:`, traceId);
 
-      console.log(`🔖 ${functionId} Trace-ID:`, traceId);
+      const data = await response.json();
+      const resultText = data.choices?.[0]?.message?.content || '';
+
+      console.log(`[${functionId}] raw response:`, resultText);
 
       // 从响应中提取JSON和思考过程
-      const { json: jsonText, thinking } = this.extractJSON(result.text);
-      console.log(`🔍 ${functionId} extracted JSON:`, jsonText);
+      const { json: jsonText, thinking } = this.extractJSON(resultText);
+      console.log(`[${functionId}] extracted JSON:`, jsonText);
 
       // 解析JSON
       const parsed = JSON.parse(jsonText);
@@ -259,13 +300,13 @@ export class PlayerServer {
         (validated as any).thinking = thinking;
         // 保存到历史记录
         this.thinkingHistory.push(thinking);
-        console.log(`💭 内心独白已保存 (历史记录数: ${this.thinkingHistory.length})`);
+        console.log(`[Thinking saved] History count: ${this.thinkingHistory.length}`);
       }
 
       // 添加traceId
       (validated as any).traceId = traceId;
 
-      console.log(`🎯 ${functionId} result:`, JSON.stringify(validated, null, 2));
+      console.log(`[${functionId}] result:`, JSON.stringify(validated, null, 2));
 
       return validated as T;
     } catch (error) {
@@ -394,50 +435,27 @@ export class PlayerServer {
     return nightPrompt + thinkingContext;
   }
 
-  // 辅助方法
-  private getModel() {
-    // 获取 baseURL，优先使用配置中的，其次使用环境变量，最后使用默认值
-    const baseURL = this.config.ai.baseURL
-      || process.env.AI_BASE_URL
-      || 'https://openrouter.ai/api/v1';
-
-    const providerName = this.config.ai.provider || 'openrouter';
-
-    // API key 优先级：运行时设置 > 配置文件 > 环境变量
-    const apiKey = this.runtimeApiKey
-      || this.config.ai.apiKey
-      || process.env.OPENROUTER_API_KEY
-      || process.env.OPENAI_API_KEY;
-
-    const aiProvider = createOpenAICompatible({
-      name: providerName,
-      baseURL: baseURL,
-      apiKey: apiKey,
-      headers: {
-        'HTTP-Referer': 'https://mojo.monad.xyz',
-        'X-Title': 'AI Werewolf Game',
-      },
-    });
-
-    return aiProvider.chatModel(this.config.ai.model);
-  }
-
   private getTelemetryConfig(
     functionId: string,
     context?: PlayerContext
   ) {
+    // 暂时禁用telemetry以避免HTTP header编码问题
+    return false;
+
+    /* 原代码保留备用
     if (!this.gameId || !this.playerId) {
       return false;
     }
-    
+
     const telemetryContext: AITelemetryContext = {
       gameId: this.gameId,
       playerId: this.playerId,
       functionId,
       context,
     };
-    
+
     return getAITelemetryConfig(telemetryContext);
+    */
   }
 
   private buildPersonalityPrompt(): string {
