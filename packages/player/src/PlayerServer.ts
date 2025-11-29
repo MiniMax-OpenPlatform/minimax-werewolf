@@ -376,7 +376,7 @@ export class PlayerServer {
       });
     }
 
-    return speechPrompt + thinkingContext + '\n\n请返回JSON格式，包含以下字段：\n- speech: 你的发言内容（30-80字的自然对话，其他玩家都能听到）\n\n请直接返回JSON格式的结果，不要包含其他说明文字。';
+    return speechPrompt + thinkingContext + '\n\n请返回JSON格式，包含以下字段：\n- speech: 你的发言内容（20-50字的自然对话，其他玩家都能听到）\n\n请直接返回JSON格式的结果，不要包含其他说明文字。';
   }
 
   private buildVotePrompt(context: PlayerContext): string {

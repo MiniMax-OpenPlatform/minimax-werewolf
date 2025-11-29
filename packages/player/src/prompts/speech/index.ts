@@ -26,7 +26,7 @@ function getSpeechFormatInstruction(role: Role): string {
   
   return `
 请返回JSON格式，包含以下字段：
-- speech: 你的发言内容（30-80字的自然对话，其他玩家都能听到）
+- speech: 你的发言内容（20-50字的自然对话，其他玩家都能听到）
 
 注意：speech字段是你的公开发言，${roleSpecificTip}`;
 }
