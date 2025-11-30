@@ -33,5 +33,5 @@ done
 echo "✅ Backend is ready!"
 
 # Start Nginx in foreground
-echo "🌐 Starting Nginx on port 80..."
+echo "🌐 Starting Nginx on port 5001..."
 exec nginx -g 'daemon off;'
