@@ -18,8 +18,8 @@ export function getPlayerServiceUrl(): string {
   if (import.meta.env.DEV) {
     return 'http://localhost:3001';
   }
-  // 生产环境：使用相对路径，通过nginx代理到后端
-  return '';
+  // 生产环境：使用 /werewolf 前缀，通过nginx代理到后端
+  return '/werewolf';
 }
 
 /**
