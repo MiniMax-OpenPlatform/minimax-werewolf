@@ -2,13 +2,19 @@
 
 import { observer } from 'mobx-react-lite';
 import { format } from 'date-fns';
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import clsx from 'clsx';
 import { Role } from '@ai-werewolf/types';
 import { gameMaster } from '@/stores/gameStore';
+import { getPlayerServiceUrl } from '@/lib/playerConfig';
 
 const SpeechItem = observer(function SpeechItem({ speech, role, index }: { speech: any; role: Role | null; index: number }) {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+
   const getRoleText = (role: Role | null) => {
     const roleMap = {
       [Role.WEREWOLF]: '狼人',
@@ -17,6 +23,59 @@ const SpeechItem = observer(function SpeechItem({ speech, role, index }: { speec
       [Role.WITCH]: '女巫'
     };
     return role ? roleMap[role] : '';
+  };
+
+  const handlePlaySpeech = async () => {
+    if (isLoading || isPlaying || speech.type === 'system') return;
+
+    try {
+      setIsLoading(true);
+
+      // 获取玩家的voiceId
+      const gameState = gameMaster.getGameState();
+      const player = gameState?.players.find(p => p.id === speech.playerId);
+      const voiceId = player?.voiceId || 'female-yujie'; // 默认音色
+
+      // 调用TTS API生成音频
+      const playerServiceUrl = getPlayerServiceUrl();
+      const response = await fetch(`${playerServiceUrl}/api/tts/generate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          text: speech.content,
+          voiceId: voiceId
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`TTS API failed: ${response.status}`);
+      }
+
+      // 获取音频数据并播放
+      const audioBlob = await response.blob();
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
+
+      audio.onplay = () => setIsPlaying(true);
+      audio.onended = () => {
+        setIsPlaying(false);
+        URL.revokeObjectURL(audioUrl); // 释放内存
+      };
+      audio.onerror = () => {
+        setIsPlaying(false);
+        URL.revokeObjectURL(audioUrl);
+        console.error('Audio playback failed');
+      };
+
+      await audio.play();
+    } catch (error) {
+      console.error('Failed to play speech:', error);
+      alert('播放失败，请检查TTS服务是否正常运行');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -62,6 +121,36 @@ const SpeechItem = observer(function SpeechItem({ speech, role, index }: { speec
       <div className="text-sm text-foreground leading-relaxed mt-1">
         {speech.content}
       </div>
+
+      {/* 播放按钮 - 只显示在玩家发言上，不显示在系统消息上 */}
+      {speech.type !== 'system' && (
+        <div className="mt-2">
+          <Button
+            onClick={handlePlaySpeech}
+            disabled={isLoading || isPlaying}
+            variant="outline"
+            size="sm"
+            className="h-7 text-xs"
+          >
+            {isLoading ? (
+              <>
+                <span className="mr-1">⏳</span>
+                生成中...
+              </>
+            ) : isPlaying ? (
+              <>
+                <span className="mr-1">🔊</span>
+                播放中...
+              </>
+            ) : (
+              <>
+                <span className="mr-1">▶️</span>
+                播放语音
+              </>
+            )}
+          </Button>
+        </div>
+      )}
 
       {/* 内心独白区域 - 始终显示 */}
       {speech.thinking && speech.type !== 'system' && (

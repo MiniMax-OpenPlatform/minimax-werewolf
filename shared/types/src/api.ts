@@ -33,7 +33,7 @@ export type PlayerId = number;
 export interface Speech {
   playerId: number;
   content: string;
-  type?: 'player' | 'system';
+  type?: 'player' | 'system' | 'night_action';
   thinking?: string; // 玩家内心独白，只有该玩家自己能看到
   traceId?: string; // LLM请求的trace ID，用于追踪和调试
 }

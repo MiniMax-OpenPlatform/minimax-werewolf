@@ -10,6 +10,7 @@ import * as path from 'path';
 import { PlayerManager } from './PlayerManager';
 import { ConfigLoader } from './config/PlayerConfig';
 import { GameLogService } from './services/GameLogService';
+import { TTSService, AVAILABLE_VOICES } from './services/TTSService';
 import {
   VotingResponseSchema,
   SpeechResponseSchema,
@@ -44,6 +45,9 @@ const playerManager = new PlayerManager(defaultConfig);
 // 使用 /app/game-logs 目录（Docker容器内）或 ./game-logs（本地开发）
 const logDir = process.env.NODE_ENV === 'production' ? '/app/game-logs' : path.join(process.cwd(), 'game-logs');
 const gameLogService = new GameLogService(logDir);
+
+// 创建 TTSService 实例
+const ttsService = new TTSService();
 
 // 配置端口
 const PORT = parseInt(process.env.PORT || String(defaultConfig.server.port)) || 3001;
@@ -287,6 +291,64 @@ app.post('/api/config/rules', (req, res) => {
 });
 
 // ============================================
+// TTS API
+// ============================================
+
+/**
+ * 获取可用音色列表
+ * GET /api/tts/voices
+ */
+app.get('/api/tts/voices', (_req, res) => {
+  try {
+    res.json({
+      voices: AVAILABLE_VOICES
+    });
+  } catch (error) {
+    console.error('Get voices error:', error);
+    res.status(500).json({ error: 'Failed to get voices' });
+  }
+});
+
+/**
+ * 文本转语音
+ * POST /api/tts/generate
+ * Body: { text: string, voiceId: string }
+ */
+app.post('/api/tts/generate', async (req, res) => {
+  try {
+    const { text, voiceId } = req.body;
+
+    if (!text || typeof text !== 'string') {
+      return res.status(400).json({ error: 'Invalid text parameter' });
+    }
+
+    if (!voiceId || typeof voiceId !== 'string') {
+      return res.status(400).json({ error: 'Invalid voiceId parameter' });
+    }
+
+    // 使用与玩家相同的API key
+    const apiKey = process.env.MINIMAX_API_KEY;
+    if (!apiKey) {
+      return res.status(500).json({ error: 'MiniMax API key not configured' });
+    }
+
+    ttsService.setApiKey(apiKey);
+
+    console.log(`[TTS API] Generating speech for text: "${text.substring(0, 50)}..." with voice: ${voiceId}`);
+
+    const audioBuffer = await ttsService.textToSpeech(text, voiceId);
+
+    // 返回音频数据，设置正确的Content-Type
+    res.setHeader('Content-Type', 'audio/mpeg');
+    res.setHeader('Content-Length', audioBuffer.length);
+    res.send(audioBuffer);
+  } catch (error) {
+    console.error('TTS generation error:', error);
+    res.status(500).json({ error: String(error) });
+  }
+});
+
+// ============================================
 // 单个玩家操作 API
 // ============================================
 
@@ -440,6 +502,8 @@ app.listen(PORT, HOST, () => {
   console.log(`   GET    /api/game-logs                  - 获取所有游戏日志`);
   console.log(`   GET    /api/game-logs/:gameId          - 获取特定游戏日志`);
   console.log(`   DELETE /api/game-logs/:gameId          - 删除游戏日志`);
+  console.log(`   GET    /api/tts/voices                 - 获取可用音色列表`);
+  console.log(`   POST   /api/tts/generate               - 文本转语音`);
   console.log(`   GET    /api/health                     - 健康检查`);
   console.log(`📁 Game logs directory: ${gameLogService.getLogDirectory()}`);
   console.log();

@@ -259,6 +259,7 @@ export class PlayerServer {
       const proxyUrl = process.env.https_proxy || process.env.http_proxy;
       if (proxyUrl) {
         console.log(`[${functionId}] Using proxy:`, proxyUrl);
+        // @ts-expect-error - undici is available at runtime via Bun
         const { ProxyAgent } = await import('undici');
         (fetchOptions as any).dispatcher = new ProxyAgent(proxyUrl);
       }
@@ -280,7 +281,7 @@ export class PlayerServer {
 
       console.log(`[${functionId}] Trace-ID:`, traceId);
 
-      const data = await response.json();
+      const data = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
       const resultText = data.choices?.[0]?.message?.content || '';
 
       console.log(`[${functionId}] raw response:`, resultText);

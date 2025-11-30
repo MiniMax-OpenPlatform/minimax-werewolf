@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { observer } from 'mobx-react-lite';
 import { GamePhase, generateGameRulesText, type GameRules } from '@ai-werewolf/types';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { gameMaster } from '@/stores/gameStore';
 import { getPlayerServiceUrl } from '@/lib/playerConfig';
 import { GameRulesModal } from './GameRulesModal';
+import { ImmersiveView } from './ImmersiveMode/ImmersiveView';
 
 const DEFAULT_PERSONALITIES = [
   '理性分析型玩家，善于逻辑推理，不轻易相信他人但也不会过度怀疑',
@@ -19,6 +20,21 @@ const DEFAULT_PERSONALITIES = [
   '情绪化玩家，容易被其他人的发言影响，判断有时不够理性'
 ];
 
+// 默认音色ID列表（将从API获取）
+const DEFAULT_VOICE_IDS = [
+  'female-yujie',
+  'ai_dageyuan_712',
+  'changan-1_01',
+  'English_Diligent_Man',
+  'qingdaoxiaoge0325',
+  'wuzhao_test_3'
+];
+
+interface Voice {
+  id: string;
+  name: string;
+}
+
 export const GameControls = observer(function GameControls() {
   const [isLoading, setIsLoading] = useState(false);
   const [showRules, setShowRules] = useState(false);
@@ -28,6 +44,44 @@ export const GameControls = observer(function GameControls() {
   const [playerPersonalities, setPlayerPersonalities] = useState<string[]>(
     DEFAULT_PERSONALITIES.slice(0, 6)
   );
+  const [playerVoiceIds, setPlayerVoiceIds] = useState<string[]>(
+    DEFAULT_VOICE_IDS.slice(0, 6)
+  );
+  const [availableVoices, setAvailableVoices] = useState<Voice[]>([]);
+
+  // 加载可用音色列表
+  useEffect(() => {
+    const loadVoices = async () => {
+      try {
+        const playerServiceUrl = getPlayerServiceUrl();
+        const response = await fetch(`${playerServiceUrl}/api/tts/voices`);
+        if (response.ok) {
+          const data = await response.json();
+          setAvailableVoices(data.voices);
+          // 随机分配音色
+          if (data.voices && data.voices.length > 0) {
+            const randomVoices = shuffleArray([...data.voices]).slice(0, 6).map((v: Voice) => v.id);
+            setPlayerVoiceIds(randomVoices);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load voices:', error);
+        // 使用默认音色
+        setAvailableVoices(DEFAULT_VOICE_IDS.map(id => ({ id, name: id })));
+      }
+    };
+    loadVoices();
+  }, []);
+
+  // 随机打乱数组
+  const shuffleArray = <T,>(array: T[]): T[] => {
+    const newArray = [...array];
+    for (let i = newArray.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+    }
+    return newArray;
+  };
 
   const handleCreateGame = async () => {
     setIsLoading(true);
@@ -135,7 +189,7 @@ export const GameControls = observer(function GameControls() {
 
       // 添加AI玩家，ID从1开始，使用单一服务URL
       for (let i = 0; i < playerCount; i++) {
-        await gameMaster.addPlayer(i + 1, playerServiceUrl, playerPersonalities[i]);
+        await gameMaster.addPlayer(i + 1, playerServiceUrl, playerPersonalities[i], playerVoiceIds[i]);
       }
 
       // 分配角色
@@ -154,6 +208,12 @@ export const GameControls = observer(function GameControls() {
     const newPersonalities = [...playerPersonalities];
     newPersonalities[index] = value;
     setPlayerPersonalities(newPersonalities);
+  };
+
+  const updateVoiceId = (index: number, value: string) => {
+    const newVoiceIds = [...playerVoiceIds];
+    newVoiceIds[index] = value;
+    setPlayerVoiceIds(newVoiceIds);
   };
 
   const handleStartGame = async () => {
@@ -196,6 +256,9 @@ export const GameControls = observer(function GameControls() {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* 沉浸模式入口 */}
+        <ImmersiveView />
+
         <div className="flex flex-wrap gap-2 items-center">
           <Button
             onClick={() => setShowApiKeyConfig(!showApiKeyConfig)}
@@ -327,6 +390,22 @@ export const GameControls = observer(function GameControls() {
                     rows={2}
                     placeholder="输入玩家性格描述..."
                   />
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs text-muted-foreground whitespace-nowrap">
+                      音色:
+                    </label>
+                    <select
+                      value={playerVoiceIds[index]}
+                      onChange={(e) => updateVoiceId(index, e.target.value)}
+                      className="flex-1 px-3 py-1.5 text-sm border rounded-md bg-background"
+                    >
+                      {availableVoices.map(voice => (
+                        <option key={voice.id} value={voice.id}>
+                          {voice.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               ))}
             </div>

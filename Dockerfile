@@ -48,6 +48,9 @@ COPY packages ./packages
 COPY shared ./shared
 COPY tsconfig.json ./
 
+# Copy audio files for immersive mode
+COPY audio ./audio
+
 # Install tsx globally for running TypeScript directly
 RUN npm install -g tsx
 
@@ -82,6 +85,9 @@ WORKDIR /app
 # Copy frontend static files
 COPY --from=builder /app/packages/game-master-vite/dist /app/frontend
 
+# Copy audio files to frontend for serving
+COPY --from=builder /app/audio /app/frontend/audio
+
 # Copy backend source code (tsx will run TypeScript directly)
 COPY --from=builder /app/packages/player/src /app/packages/player/src
 COPY --from=builder /app/packages/player/package.json /app/packages/player/package.json
@@ -106,8 +112,8 @@ RUN chmod +x /docker-entrypoint.sh
 RUN mkdir -p /app/game-logs && \
     chmod 777 /app/game-logs
 
-# Expose port 80
-EXPOSE 80
+# Expose port 5001
+EXPOSE 5001
 
 # Set entrypoint
 ENTRYPOINT ["/docker-entrypoint.sh"]

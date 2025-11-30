@@ -17,6 +17,7 @@ export class GameMaster {
   public nightTemp: NightTempState = {};
   public seerResult:InvestigatedPlayers = {}
   public lastWerewolfKill: number | undefined = undefined;  // 记录上次狼人击杀的目标
+  public isProcessingPhase: boolean = false;  // 是否正在处理阶段转换
 
   public speechSystem: SpeechSystem = new SpeechSystem();
   public operationLogSystem: OperationLogSystem = new OperationLogSystem();
@@ -54,12 +55,16 @@ export class GameMaster {
     return {
       currentPhase: this.currentPhase,
       round: this.round,
-      players: this.players.map(p => ({
-        id: p.id,
-        isAlive: p.isAlive,
-        role: p.role,
-        personality: p.personality
-      }))
+      players: this.players.map(p => {
+        const client = this.clients.find(c => c.id === p.id);
+        return {
+          id: p.id,
+          isAlive: p.isAlive,
+          role: p.role,
+          personality: p.personality,
+          voiceId: client?.voiceId
+        };
+      })
     };
   }
 
@@ -206,7 +211,7 @@ export class GameMaster {
     this.operationLogSystem.logPhaseChange('夜晚', 1);
 
     // 添加游戏开始的系统通知
-    await this.addSpeech(-1, '[系统] 游戏开始！进入第1天夜晚阶段。', 'system');
+    await this.addSpeech(-1, '[系统] 游戏开始！现在是第1天夜晚。', 'system');
 
     // 通知所有AI玩家游戏开始和他们的角色
     await this.notifyPlayersGameStart();
@@ -266,6 +271,8 @@ export class GameMaster {
     const leadWerewolf = this.getAlivePlayerOfType(isWerewolfPlayer);
 
     if (leadWerewolf) {
+      // 添加主持人提示："狼人请杀人"
+      await this.addSpeech(-1, '狼人请杀人', 'system');
 
       console.log(`🐺 Asking ${leadWerewolf.id} to choose kill target`);
       this.operationLogSystem.logPlayerRequest(leadWerewolf.id, '选择杀害目标');
@@ -283,6 +290,11 @@ export class GameMaster {
 
         // 处理狼人杀人目标
         this.processWerewolfAction(result);
+
+        // 添加夜间行动文字显示（不播放TTS）
+        if (result.action === 'kill' && result.target) {
+          await this.addSpeech(-1, `狼人杀 ${result.target} 号`, 'night_action');
+        }
 
         // 记录狼人夜间行动到游戏日志
         if (this.gameLog) {
@@ -307,6 +319,9 @@ export class GameMaster {
     // 预言家查验
     const seer = this.getAlivePlayerOfType(isSeerPlayer);
     if (seer) {
+      // 添加主持人提示："预言家请指认"
+      await this.addSpeech(-1, '预言家请指认', 'system');
+
       console.log(`🔮 Asking ${seer.id} to choose investigation target`);
       this.operationLogSystem.logPlayerRequest(seer.id, '选择查验目标');
 
@@ -323,6 +338,11 @@ export class GameMaster {
 
         // 处理预言家查验结果
         this.processSeerAction(result);
+
+        // 添加夜间行动文字显示（不播放TTS）
+        if (result.target) {
+          await this.addSpeech(-1, `预言家指认 ${result.target} 号`, 'night_action');
+        }
 
         // 记录预言家夜间行动到游戏日志
         if (this.gameLog) {
@@ -348,6 +368,9 @@ export class GameMaster {
     // 女巫行动
     const witch = this.getAlivePlayerOfType(isWitchPlayer);
     if (witch) {
+      // 添加主持人提示："女巫请确认是否使用药水"
+      await this.addSpeech(-1, '女巫请确认是否使用药水', 'system');
+
       console.log(`🧙 Asking ${witch.id} to use abilities`);
       this.operationLogSystem.logPlayerRequest(witch.id, '是否使用药水');
 
@@ -374,6 +397,17 @@ export class GameMaster {
 
           // 处理女巫的行动
           this.processWitchAction(witch,result);
+
+          // 添加夜间行动文字显示（不播放TTS）
+          if (result.action === 'using') {
+            if (result.healTarget > 0 && result.poisonTarget > 0) {
+              await this.addSpeech(-1, `女巫使用解药救 ${result.healTarget} 号，使用毒药毒 ${result.poisonTarget} 号`, 'night_action');
+            } else if (result.healTarget > 0) {
+              await this.addSpeech(-1, `女巫使用解药救 ${result.healTarget} 号`, 'night_action');
+            } else if (result.poisonTarget > 0) {
+              await this.addSpeech(-1, `女巫使用毒药毒 ${result.poisonTarget} 号`, 'night_action');
+            }
+          }
 
           // 记录女巫夜间行动到游戏日志
           if (this.gameLog) {
@@ -510,6 +544,9 @@ export class GameMaster {
       console.log(`🗳️ Asking ${player.id} to vote`);
       this.operationLogSystem.logPlayerRequest(player.id, '投票');
 
+      // 添加主持人提示："X号请投票"
+      await this.addSpeech(-1, `${player.id} 号请投票`, 'system');
+
       const result = await player.vote(this);
 
       if (result) {
@@ -584,19 +621,20 @@ export class GameMaster {
 
   // This GameMaster instance manages a single game, so getGameState is not needed
 
-  async addPlayer(playerId: number, url: string, personality?: string): Promise<void> {
+  async addPlayer(playerId: number, url: string, personality?: string, voiceId?: string): Promise<void> {
     console.log(`👤 Adding player ${playerId} to game ${this.gameId}`);
 
     // 只添加客户端信息，角色信息在assignRoles时分配
     const client: Client = {
       id: playerId,
       url: url,
-      personality: personality
+      personality: personality,
+      voiceId: voiceId
     };
 
     this.clients.push(client);
     this.operationLogSystem.logSystemAction(`玩家 ${playerId} 加入游戏`);
-    console.log(`✅ Client ${playerId} added to game ${this.gameId}`);
+    console.log(`✅ Client ${playerId} added to game ${this.gameId} with voice: ${voiceId || 'default'}`);
   }
 
   async assignRoles(): Promise<void> {
@@ -672,59 +710,79 @@ export class GameMaster {
       return this.currentPhase;
     }
 
-    // 直接实现阶段切换逻辑
-    const phaseOrder = [GamePhase.NIGHT, GamePhase.DAY, GamePhase.VOTING];
-    const currentIndex = phaseOrder.indexOf(this.currentPhase);
-    const nextIndex = (currentIndex + 1) % phaseOrder.length;
-    this.currentPhase = phaseOrder[nextIndex];
+    // 标记正在处理阶段
+    console.log('[GameMaster] Setting isProcessingPhase = true');
+    this.isProcessingPhase = true;
 
-    if (this.currentPhase === GamePhase.NIGHT) {
-      this.round++;
+    try {
+      // 直接实现阶段切换逻辑
+      const phaseOrder = [GamePhase.NIGHT, GamePhase.DAY, GamePhase.VOTING];
+      const currentIndex = phaseOrder.indexOf(this.currentPhase);
+      const nextIndex = (currentIndex + 1) % phaseOrder.length;
+      this.currentPhase = phaseOrder[nextIndex];
 
-      // 更新游戏日志的轮次
-      if (this.gameLog) {
-        this.gameLog.totalRounds = this.round;
+      if (this.currentPhase === GamePhase.NIGHT) {
+        this.round++;
+
+        // 更新游戏日志的轮次
+        if (this.gameLog) {
+          this.gameLog.totalRounds = this.round;
+        }
       }
+
+      // 阶段名称映射
+      const phaseNamesShort = {
+        [GamePhase.PREPARING]: '准备',
+        [GamePhase.NIGHT]: '夜晚',
+        [GamePhase.DAY]: '白天',
+        [GamePhase.VOTING]: '投票',
+        [GamePhase.ENDED]: '结束'
+      };
+
+      const phaseNames = {
+        [GamePhase.PREPARING]: '准备阶段',
+        [GamePhase.NIGHT]: '夜晚',
+        [GamePhase.DAY]: '白天',
+        [GamePhase.VOTING]: '投票',
+        [GamePhase.ENDED]: '游戏结束'
+      };
+
+      // 记录阶段切换
+      this.operationLogSystem.logPhaseChange(phaseNamesShort[this.currentPhase], this.round);
+
+      // 记录阶段切换事件到游戏日志
+      if (this.gameLog) {
+        this.gameLog.events.push({
+          type: `${this.currentPhase}_start`,
+          description: `进入${phaseNamesShort[this.currentPhase]}阶段`,
+          data: { phase: this.currentPhase, round: this.round },
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      // 添加阶段切换的系统通知
+
+      const phaseEmojis = {
+        [GamePhase.PREPARING]: '⏳',
+        [GamePhase.NIGHT]: '🌙',
+        [GamePhase.DAY]: '☀️',
+        [GamePhase.VOTING]: '🗳️',
+        [GamePhase.ENDED]: '🏁'
+      };
+
+      await this.addSpeech(-1, `${phaseEmojis[this.currentPhase]} 现在是第${this.round}天${phaseNames[this.currentPhase]}`, 'system');
+
+      console.log(`🔄 Game ${this.gameId} advanced to phase: ${this.currentPhase}, day: ${this.round}`);
+
+      // 触发对应阶段的AI玩家行动
+      await this.triggerPhaseActions();
+
+      return this.currentPhase;
+    } finally {
+      // 阶段处理完成，允许点击下一步
+      console.log('[GameMaster] Setting isProcessingPhase = false');
+      this.isProcessingPhase = false;
     }
-
-    // 记录阶段切换
-    const phaseNames = {
-      [GamePhase.PREPARING]: '准备',
-      [GamePhase.NIGHT]: '夜晚',
-      [GamePhase.DAY]: '白天',
-      [GamePhase.VOTING]: '投票',
-      [GamePhase.ENDED]: '结束'
-    };
-
-    this.operationLogSystem.logPhaseChange(phaseNames[this.currentPhase], this.round);
-
-    // 记录阶段切换事件到游戏日志
-    if (this.gameLog) {
-      this.gameLog.events.push({
-        type: `${this.currentPhase}_start`,
-        description: `进入${phaseNames[this.currentPhase]}阶段`,
-        data: { phase: this.currentPhase, round: this.round },
-        timestamp: new Date().toISOString()
-      });
-    }
-
-    // 添加阶段切换的系统通知
-    const phaseEmojis = {
-      [GamePhase.PREPARING]: '⏳ 准备',
-      [GamePhase.NIGHT]: '🌙 夜晚',
-      [GamePhase.DAY]: '☀️ 白天',
-      [GamePhase.VOTING]: '🗳️ 投票',
-      [GamePhase.ENDED]: '🏁 结束'
-    };
-
-    await this.addSpeech(-1, `${phaseEmojis[this.currentPhase]} 阶段开始（第${this.round}天）`, 'system');
-
-    console.log(`🔄 Game ${this.gameId} advanced to phase: ${this.currentPhase}, day: ${this.round}`);
-
-    // 触发对应阶段的AI玩家行动
-    await this.triggerPhaseActions();
-
-    return this.currentPhase;
   }
 
   async castVote(voterId: number, targetId: number): Promise<void> {
@@ -878,7 +936,7 @@ export class GameMaster {
     return tieCount === 1 ? eliminatedPlayer : null;
   }
 
-  async addSpeech(playerId: number, content: string, type: 'player' | 'system' = 'player', thinking?: string, traceId?: string): Promise<void> {
+  async addSpeech(playerId: number, content: string, type: 'player' | 'system' | 'night_action' = 'player', thinking?: string, traceId?: string): Promise<void> {
     const speech = {
       playerId,
       content,

@@ -72,6 +72,7 @@ function gameLogApiPlugin(): Plugin {
 
 // https://vite.dev/config/
 export default defineConfig({
+  base: '/werewolf/',
   plugins: [react(), tailwindcss(), gameLogApiPlugin()],
   resolve: {
     alias: {

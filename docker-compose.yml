@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   ai-werewolf:
     build:
@@ -12,16 +10,12 @@ services:
     container_name: ai-werewolf-game
     restart: unless-stopped
     ports:
-      - "80:80"
+      - "5001:5001"
     environment:
-      # AI Provider Configuration
-      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
-      - AI_MODEL=${AI_MODEL:-google/gemini-2.5-flash}
-
-      # Langfuse Telemetry (optional)
-      - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY:-}
-      - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY:-}
-      - LANGFUSE_BASEURL=${LANGFUSE_BASEURL:-https://us.cloud.langfuse.com}
+      # MiniMax Configuration
+      - MINIMAX_API_KEY=${MINIMAX_API_KEY}
+      - AI_MODEL=${AI_MODEL:-MiniMax-M2}
+      - AI_BASE_URL=${AI_BASE_URL:-https://api.minimaxi.com/v1}
 
       # Server Configuration
       - PORT=3001
@@ -34,7 +28,7 @@ services:
       - ftp_proxy=http://pac-internal.xaminim.com:3129
       - no_proxy=localhost,127.0.0.1,*.xaminim.com,10.0.0.0/8
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:5001/werewolf/health"]
       interval: 30s
       timeout: 10s
       retries: 3
