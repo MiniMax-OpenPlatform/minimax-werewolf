@@ -13,7 +13,6 @@
 - 🎭 **四大角色**: 村民、狼人、预言家、女巫，各具特色技能
 - 👤 **个性化配置**: 可自定义每个玩家的性格、策略和说话风格
 - 📊 **实时可视化**: React + MobX 实时状态管理，查看所有玩家行为
-- 🔍 **AI 遥测追踪**: 集成 Langfuse，记录每次 AI 决策的 Trace ID
 - 📜 **游戏历史**: 完整记录每局游戏，包括发言、投票、夜间行动和 AI 思考过程
 - 💭 **内心独白**: 查看 AI 玩家的思考过程和推理逻辑
 - 🎵 **沉浸式模式**: 背景音乐、TTS 语音、玩家圆形布局，提供沉浸式游戏体验
@@ -21,11 +20,11 @@
 
 ## 🎯 项目亮点
 
-- **前端 API Key 配置**: 无需配置环境变量，直接在 Web 界面输入 MiniMax API Key
+- **Web 界面配置**: 直接在 Web 界面输入 MiniMax API Key，无需配置环境变量
 - **MiniMax AI 驱动**: 使用 MiniMax-M2 模型提供智能对话和推理能力
-- **详细日志系统**: 记录完整的游戏过程，包括 AI 思考、Trace ID、投票理由等
+- **详细日志系统**: 记录完整的游戏过程，包括 AI 思考、投票理由等
 - **操作记录**: 实时显示游戏操作日志，方便调试和分析
-- **玩家对话**: 分别显示公开发言、内心独白和 Trace ID
+- **玩家对话**: 分别显示公开发言和内心独白
 - **游戏回放**: 可查看历史游戏的完整过程
 - **沉浸式体验**: 动态背景音乐、实时 TTS 语音、精美 UI 设计
 
@@ -39,7 +38,6 @@
   - 自定义个性系统
   - Structured Outputs (Zod Schema)
 - **音频系统**: Web Audio API + TTS
-- **监控**: Langfuse 遥测与追踪
 - **架构**: Monorepo
 
 ## 📦 项目结构
@@ -77,7 +75,6 @@ minimax-werewolf/
 │   │   ├── schemas.ts           # Zod 验证模式
 │   │   └── gameLog.ts           # 游戏日志类型
 │   ├── lib/                     # 共享工具库
-│   │   ├── langfuse.ts          # Langfuse 集成
 │   │   ├── operationLog.ts      # 操作日志系统
 │   │   └── speechSystem.ts      # 发言系统
 │   └── prompts/                 # 共享提示模板
@@ -104,52 +101,20 @@ minimax-werewolf/
 git clone https://github.com/MiniMax-OpenPlatform/minimax-werewolf.git
 cd minimax-werewolf
 
-# 2. 配置环境变量
-cp .env.example .env
-# 编辑 .env 文件，填入您的 MiniMax API Key
-```
-
-### 配置说明
-
-#### MiniMax API Key 配置（两种方式）
-
-**方式 1：前端界面配置（推荐）** ✨
-- 启动游戏后，在游戏控制面板点击 **"🔑 配置 API Key"**
-- 输入您的 MiniMax API Key
-- API Key 仅在当前游戏会话中使用，不会被存储
-
-**方式 2：环境变量配置**
-```bash
-# 在 .env 文件中配置
-MINIMAX_API_KEY=your_minimax_api_key_here
-AI_MODEL=MiniMax-M2
-AI_BASE_URL=https://api.minimaxi.com/v1
-```
-
-#### Langfuse 遥测配置（可选）
-```bash
-# 在 .env 文件中配置
-LANGFUSE_SECRET_KEY=your_secret_key
-LANGFUSE_PUBLIC_KEY=your_public_key
-LANGFUSE_BASEURL=https://us.cloud.langfuse.com
-```
-
-### 启动游戏
-
-```bash
-# 构建并启动 Docker 容器
+# 2. 构建并启动 Docker 容器
 docker compose up -d --build
 
-# 查看容器状态
+# 3. 查看容器状态
 docker compose ps
 
-# 查看日志
+# 4. 查看日志
 docker compose logs -f
 ```
 
-### 开始游戏
+### 访问游戏
 
-1. 访问 **http://10.43.1.247:5001/werewolf**（或您的服务器地址）
+1. 打开浏览器访问 **http://localhost:5001/werewolf**（本地部署）
+   - 如果是服务器部署，访问 **http://YOUR_SERVER_IP:5001/werewolf**
 2. 点击 **"🔑 配置 API Key"** 输入您的 MiniMax API Key
 3. 点击 **"👤 配置玩家性格"** 自定义 AI 玩家个性（可选）
 4. 点击 **"创建新游戏"** - 自动添加 6 个 AI 玩家并分配角色
@@ -245,7 +210,7 @@ docker compose up -d --build
 ### 1. 实时游戏界面
 
 - **玩家列表**: 显示所有玩家状态、角色、性格
-- **对话记录**: 查看玩家发言、内心独白、Trace ID
+- **对话记录**: 查看玩家发言、内心独白
 - **操作记录**: 实时显示游戏操作日志
 - **游戏控制**: 创建游戏、开始游戏、推进阶段
 - **沉浸式模式**: 背景音乐、TTS 语音、玩家圆形布局
@@ -255,14 +220,12 @@ docker compose up -d --build
 每条发言都包含：
 - 💬 **公开发言**: 其他玩家可见的内容
 - 💭 **内心独白**: AI 的思考过程和推理逻辑
-- 🔖 **Trace ID**: Langfuse 追踪 ID，可查看详细 AI 调用过程
 
 ### 3. 游戏历史与回放
 
 - 📜 查看所有历史游戏
 - 🔍 查看游戏详情（发言、投票、夜间行动）
 - 📊 分析 AI 决策过程
-- 🔖 追踪每次 AI 调用的 Trace ID
 
 ### 4. 操作日志系统
 
@@ -270,7 +233,6 @@ docker compose up -d --build
 - 🎯 阶段切换
 - 💬 玩家请求/响应
 - 📊 游戏结果
-- 🔖 每个操作的 Trace ID
 
 ### 5. 音频系统
 
@@ -284,8 +246,11 @@ docker compose up -d --build
 ### 健康检查
 
 ```bash
-# 检查服务健康状态
-curl http://10.43.1.247:5001/werewolf/health
+# 检查服务健康状态（本地部署）
+curl http://localhost:5001/werewolf/health
+
+# 服务器部署
+curl http://YOUR_SERVER_IP:5001/werewolf/health
 ```
 
 ### 游戏日志存储
@@ -298,19 +263,11 @@ curl http://10.43.1.247:5001/werewolf/health
 
 每个游戏日志包含：
 - 游戏配置（玩家数、角色分配）
-- 所有发言记录（含 thinking 和 traceId）
-- 所有投票记录（含理由和 traceId）
-- 所有夜间行动（含 thinking 和 traceId）
+- 所有发言记录（含 thinking）
+- 所有投票记录（含理由）
+- 所有夜间行动
 - 游戏事件（阶段切换、玩家死亡等）
 - 游戏结果（胜利方、幸存玩家）
-
-### Langfuse 追踪
-
-如果配置了 Langfuse，可以在 Langfuse 平台查看：
-- 每次 AI 调用的详细参数
-- 提示词和响应
-- 性能指标
-- 成本统计
 
 ## 🎯 待完成功能
 
@@ -347,7 +304,7 @@ curl http://10.43.1.247:5001/werewolf/health
 ## 🔒 安全说明
 
 - API Key 仅在浏览器会话中使用，不会被存储到服务器
-- 建议使用环境变量配置 API Key，避免在代码中硬编码
+- 避免在代码中硬编码 API Key
 - Docker 容器以非特权用户运行
 - 定期更新依赖包，修复安全漏洞
 
@@ -361,7 +318,6 @@ curl http://10.43.1.247:5001/werewolf/health
 
 在原项目基础上，我们进行了以下优化和定制：
 - ✨ 添加了玩家个性化配置系统
-- 🔍 集成 Langfuse AI 行为追踪，支持 Trace ID 显示
 - 📊 增强的游戏历史记录功能
 - 💭 显示 AI 内心独白和思考过程
 - 🎨 优化的 UI/UX 设计
@@ -372,7 +328,6 @@ curl http://10.43.1.247:5001/werewolf/health
 同时感谢以下开源项目和服务：
 - [MiniMax AI](https://www.minimaxi.com) - 强大的 AI 大模型服务
 - [Docker](https://www.docker.com) - 容器化部署平台
-- [Langfuse](https://langfuse.com) - AI 遥测平台
 - [React](https://react.dev) - UI 框架
 - [MobX](https://mobx.js.org) - 状态管理
 - [Vite](https://vitejs.dev) - 前端构建工具
