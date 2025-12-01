@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { getPlayerServiceUrl } from '@/lib/playerConfig';
 
 interface UserInfo {
   userId: string;
@@ -23,7 +24,8 @@ export function UserStats() {
   const fetchStats = async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:3001/api/user-stats');
+      const playerServiceUrl = getPlayerServiceUrl();
+      const response = await fetch(`${playerServiceUrl}/api/user-stats`);
 
       if (!response.ok) {
         throw new Error('获取统计数据失败');

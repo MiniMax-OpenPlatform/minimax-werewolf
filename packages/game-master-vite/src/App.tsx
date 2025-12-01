@@ -1,20 +1,53 @@
 /// <reference types="vite/client" />
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { GameConsole } from '@/components/GameConsole';
 import { GameHistory } from '@/components/GameHistory';
-import { UserStats } from '@/components/UserStats';
+import { StatsPage } from '@/pages/StatsPage';
 import { Button } from '@/components/ui/button';
 import './globals.css';
 
 function App() {
-  const [activeView, setActiveView] = useState<'game' | 'history' | 'stats'>('game');
+  const [currentPage, setCurrentPage] = useState<'main' | 'stats'>('main');
+  const [activeView, setActiveView] = useState<'game' | 'history'>('game');
+
+  // 根据 URL hash 判断当前页面
+  useEffect(() => {
+    const handleHashChange = () => {
+      if (window.location.hash === '#stats') {
+        setCurrentPage('stats');
+      } else {
+        setCurrentPage('main');
+      }
+    };
+
+    handleHashChange();
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
+  // 如果是统计页面，直接显示统计页面
+  if (currentPage === 'stats') {
+    return <StatsPage />;
+  }
 
   return (
     <div className="min-h-screen bg-background">
       <header className="bg-gradient-to-r from-primary/10 via-primary/5 to-primary/10 backdrop-blur-sm border-b border-border sticky top-0 z-10">
         <div className="py-6 relative">
-          {/* GitHub Link */}
-          <div className="absolute right-6 top-6">
+          {/* Right Side Links */}
+          <div className="absolute right-6 top-6 flex gap-2">
+            {/* Stats Link */}
+            <a
+              href="#stats"
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-foreground/80 hover:text-foreground bg-background/50 hover:bg-background/80 border border-border rounded-lg transition-all hover:shadow-md"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+              <span>用户统计</span>
+            </a>
+
+            {/* GitHub Link */}
             <a
               href="https://github.com/MiniMax-OpenPlatform/minimax-werewolf"
               target="_blank"
@@ -48,12 +81,6 @@ function App() {
             >
               历史记录
             </Button>
-            <Button
-              onClick={() => setActiveView('stats')}
-              variant={activeView === 'stats' ? 'default' : 'outline'}
-            >
-              用户统计
-            </Button>
           </div>
         </div>
       </header>
@@ -61,7 +88,6 @@ function App() {
       <main className="container mx-auto px-6 py-8 max-w-[90rem]">
         {activeView === 'game' && <GameConsole />}
         {activeView === 'history' && <GameHistory />}
-        {activeView === 'stats' && <UserStats />}
       </main>
     </div>
   );
