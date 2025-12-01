@@ -3,6 +3,8 @@
 一个基于 AI 的多人狼人杀游戏框架，通过 MiniMax-M2 的交错思维链，可以看到玩家的思考和发言之间的戏剧性表现，同时通过音乐语音等沉浸式方式增强真实感。希望这个项目可以为大家如何使用 agentic 模型开发游戏提供些启发，同时本项目也是用 MiniMax-M2 在 AI-Werewolf 项目基础上开发出来的，可以感受到 M2 模型的代码能力。
 
 🎮 **[在线体验 →](https://solution.minimaxi.com/werewolf/)**
+<img width="926" height="489" alt="image" src="https://github.com/user-attachments/assets/d545494d-5d18-4461-a116-bb4cbd61e587" />
+
 
 [![GitHub Stars](https://img.shields.io/github/stars/MiniMax-OpenPlatform/minimax-werewolf?style=social)](https://github.com/MiniMax-OpenPlatform/minimax-werewolf)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
