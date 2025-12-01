@@ -21,9 +21,9 @@ export class BackgroundMusicPlayer {
   private duckInterval: number | null = null; // 专门用于duck/unduck的interval
 
   private musicConfig: BackgroundMusicConfig = {
-    night: '/audio/bgm/night.mp3',
-    day: '/audio/bgm/day.mp3',
-    voting: '/audio/bgm/voting.mp3',
+    night: `${import.meta.env.BASE_URL}audio/bgm/night.mp3`,
+    day: `${import.meta.env.BASE_URL}audio/bgm/day.mp3`,
+    voting: `${import.meta.env.BASE_URL}audio/bgm/voting.mp3`,
   };
 
   constructor(config?: Partial<BackgroundMusicConfig>) {
@@ -384,10 +384,17 @@ export class BackgroundMusicPlayer {
    */
   setVolume(volume: number): void {
     this.baseVolume = Math.max(0, Math.min(1, volume));
-    this.duckedVolume = this.baseVolume * 0.3;
+    this.duckedVolume = this.baseVolume * 0.6; // 降低后的音量60%
 
-    if (this.audio && !this.isDucked) {
-      this.audio.volume = this.baseVolume;
+    if (this.audio) {
+      // 根据当前是否处于ducked状态，设置对应的音量
+      this.audio.volume = this.isDucked ? this.duckedVolume : this.baseVolume;
+      console.log('[BGM] Volume updated:', {
+        baseVolume: this.baseVolume,
+        duckedVolume: this.duckedVolume,
+        isDucked: this.isDucked,
+        actualVolume: this.audio.volume
+      });
     }
   }
 

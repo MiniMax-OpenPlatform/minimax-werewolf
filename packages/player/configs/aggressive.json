@@ -6,7 +6,7 @@
   "ai": {
     "model": "openai/gpt-4",
     "maxTokens": 200,
-    "temperature": 0.9,
+    "temperature": 1.0,
     "provider": "openrouter"
   },
   "game": {

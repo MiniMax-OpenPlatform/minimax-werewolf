@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import type { GameLog } from '@ai-werewolf/types';
+import { getPlayerServiceUrl } from '@/lib/playerConfig';
 
 interface GameDetailViewProps {
   gameId: string;
@@ -20,7 +21,7 @@ export function GameDetailView({ gameId, onBack }: GameDetailViewProps) {
       try {
         setLoading(true);
         setError(null);
-        const response = await fetch(`/api/game-logs/${gameId}`);
+        const response = await fetch(`${getPlayerServiceUrl()}/api/game-logs/${gameId}`);
         if (!response.ok) {
           throw new Error('Failed to load game detail');
         }

@@ -32,7 +32,7 @@ export const DEFAULT_CONFIG: PlayerConfig = {
   ai: {
     model: 'MiniMax-M2',
     maxTokens: 150,
-    temperature: 0.8,
+    temperature: 1.0,
     provider: 'minimax',
     baseURL: 'https://api.minimaxi.com/v1'
   },

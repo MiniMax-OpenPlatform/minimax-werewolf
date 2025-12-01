@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import type { GameLogSummary } from '@ai-werewolf/types';
+import { getPlayerServiceUrl } from '@/lib/playerConfig';
 
 interface GameHistoryListProps {
   onViewDetail: (gameId: string) => void;
@@ -17,7 +18,7 @@ export function GameHistoryList({ onViewDetail }: GameHistoryListProps) {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetch('/api/game-logs');
+      const response = await fetch(`${getPlayerServiceUrl()}/api/game-logs`);
       if (!response.ok) {
         throw new Error('Failed to load game history');
       }
@@ -41,7 +42,7 @@ export function GameHistoryList({ onViewDetail }: GameHistoryListProps) {
     }
 
     try {
-      const response = await fetch(`/api/game-logs/${gameId}`, {
+      const response = await fetch(`${getPlayerServiceUrl()}/api/game-logs/${gameId}`, {
         method: 'DELETE'
       });
       if (!response.ok) {

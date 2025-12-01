@@ -6,6 +6,7 @@ import type { GameLog, GameLogPlayerInfo } from '@ai-werewolf/types';
 import { type Client } from './Client';
 import { type Player, isWerewolfPlayer, isSeerPlayer, isWitchPlayer, createPlayer, type WitchPlayer } from './Player';
 import { PlayerAPIClient } from './PlayerAPIClient';
+import { getPlayerServiceUrl } from './playerConfig';
 
 export class GameMaster {
   // 单个游戏实例的属性
@@ -22,7 +23,7 @@ export class GameMaster {
   public speechSystem: SpeechSystem = new SpeechSystem();
   public operationLogSystem: OperationLogSystem = new OperationLogSystem();
   public allVotes: AllVotes = {};
-  private gameLog: GameLog | null = null;
+  public gameLog: GameLog | null = null;
 
   constructor(gameId: string, playerCount?: number) {
     this.gameId = gameId;
@@ -31,6 +32,7 @@ export class GameMaster {
       recentOperationLogs: computed,
       operationLogSystem: true, // 确保operationLogSystem是observable
       speechSystem: true, // 确保speechSystem是observable
+      gameLog: true, // 确保gameLog是observable
     });
     
     initializeLangfuse();
@@ -194,6 +196,14 @@ export class GameMaster {
     return result;
   }
 
+  /**
+   * 延迟辅助方法，用于等待TTS播放完成
+   * @param ms 延迟毫秒数
+   */
+  private delay(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
 
   async createGame(playerCount: number): Promise<string> {
     // 游戏ID已经在构造函数中设置
@@ -203,20 +213,30 @@ export class GameMaster {
   }
 
   async startGame(): Promise<void> {
-    this.currentPhase = GamePhase.NIGHT;
-    this.round++;
+    // 标记正在处理阶段（防止用户在夜晚行动期间点击下一步）
+    console.log('[GameMaster] startGame: Setting isProcessingPhase = true');
+    this.isProcessingPhase = true;
 
-    // 记录操作日志
-    this.operationLogSystem.logSystemAction('游戏正式开始！');
-    this.operationLogSystem.logPhaseChange('夜晚', 1);
+    try {
+      this.currentPhase = GamePhase.NIGHT;
+      this.round++;
 
-    // 添加游戏开始的系统通知
-    await this.addSpeech(-1, '[系统] 游戏开始！现在是第1天夜晚。', 'system');
+      // 记录操作日志
+      this.operationLogSystem.logSystemAction('游戏正式开始！');
+      this.operationLogSystem.logPhaseChange('夜晚', 1);
 
-    // 通知所有AI玩家游戏开始和他们的角色
-    await this.notifyPlayersGameStart();
+      // 添加游戏开始的系统通知
+      await this.addSpeech(-1, '[系统] 游戏开始！现在是第1天夜晚。', 'system');
 
-    await this.triggerPhaseActions();
+      // 通知所有AI玩家游戏开始和他们的角色
+      await this.notifyPlayersGameStart();
+
+      await this.triggerPhaseActions();
+    } finally {
+      // 阶段处理完成，允许点击下一步
+      console.log('[GameMaster] startGame: Setting isProcessingPhase = false');
+      this.isProcessingPhase = false;
+    }
   }
 
   private async notifyPlayersGameStart(): Promise<void> {
@@ -274,6 +294,9 @@ export class GameMaster {
       // 添加主持人提示："狼人请杀人"
       await this.addSpeech(-1, '狼人请杀人', 'system');
 
+      // 等待TTS播放完成（沉浸模式体验优化）
+      await this.delay(3500);
+
       console.log(`🐺 Asking ${leadWerewolf.id} to choose kill target`);
       this.operationLogSystem.logPlayerRequest(leadWerewolf.id, '选择杀害目标');
 
@@ -291,9 +314,9 @@ export class GameMaster {
         // 处理狼人杀人目标
         this.processWerewolfAction(result);
 
-        // 添加夜间行动文字显示（不播放TTS）
+        // 添加夜间行动文字显示（不播放TTS），包含thinking
         if (result.action === 'kill' && result.target) {
-          await this.addSpeech(-1, `狼人杀 ${result.target} 号`, 'night_action');
+          await this.addSpeech(-1, `狼人杀 ${result.target} 号`, 'night_action', result.thinking);
         }
 
         // 记录狼人夜间行动到游戏日志
@@ -322,6 +345,9 @@ export class GameMaster {
       // 添加主持人提示："预言家请指认"
       await this.addSpeech(-1, '预言家请指认', 'system');
 
+      // 等待TTS播放完成（沉浸模式体验优化）
+      await this.delay(3500);
+
       console.log(`🔮 Asking ${seer.id} to choose investigation target`);
       this.operationLogSystem.logPlayerRequest(seer.id, '选择查验目标');
 
@@ -339,9 +365,9 @@ export class GameMaster {
         // 处理预言家查验结果
         this.processSeerAction(result);
 
-        // 添加夜间行动文字显示（不播放TTS）
+        // 添加夜间行动文字显示（不播放TTS），包含thinking
         if (result.target) {
-          await this.addSpeech(-1, `预言家指认 ${result.target} 号`, 'night_action');
+          await this.addSpeech(-1, `预言家指认 ${result.target} 号`, 'night_action', result.thinking);
         }
 
         // 记录预言家夜间行动到游戏日志
@@ -371,6 +397,9 @@ export class GameMaster {
       // 添加主持人提示："女巫请确认是否使用药水"
       await this.addSpeech(-1, '女巫请确认是否使用药水', 'system');
 
+      // 等待TTS播放完成（沉浸模式体验优化）
+      await this.delay(3500);
+
       console.log(`🧙 Asking ${witch.id} to use abilities`);
       this.operationLogSystem.logPlayerRequest(witch.id, '是否使用药水');
 
@@ -398,14 +427,14 @@ export class GameMaster {
           // 处理女巫的行动
           this.processWitchAction(witch,result);
 
-          // 添加夜间行动文字显示（不播放TTS）
+          // 添加夜间行动文字显示（不播放TTS），包含thinking
           if (result.action === 'using') {
             if (result.healTarget > 0 && result.poisonTarget > 0) {
-              await this.addSpeech(-1, `女巫使用解药救 ${result.healTarget} 号，使用毒药毒 ${result.poisonTarget} 号`, 'night_action');
+              await this.addSpeech(-1, `女巫使用解药救 ${result.healTarget} 号，使用毒药毒 ${result.poisonTarget} 号`, 'night_action', result.thinking);
             } else if (result.healTarget > 0) {
-              await this.addSpeech(-1, `女巫使用解药救 ${result.healTarget} 号`, 'night_action');
+              await this.addSpeech(-1, `女巫使用解药救 ${result.healTarget} 号`, 'night_action', result.thinking);
             } else if (result.poisonTarget > 0) {
-              await this.addSpeech(-1, `女巫使用毒药毒 ${result.poisonTarget} 号`, 'night_action');
+              await this.addSpeech(-1, `女巫使用毒药毒 ${result.poisonTarget} 号`, 'night_action', result.thinking);
             }
           }
 
@@ -558,10 +587,10 @@ export class GameMaster {
           result.traceId
         );
 
-        // 添加投票信息到聊天显示（包括内心独白和traceId）
+        // 添加简短的投票声明（只说"我投X号"，不说理由）
         await this.addSpeech(
           player.id,
-          `[投票] 投票给 ${result.target}号玩家。理由：${result.reason}`,
+          `我投 ${result.target} 号`,
           'player',
           result.thinking,
           result.traceId
@@ -965,7 +994,7 @@ export class GameMaster {
 
     try {
       console.log(`💾 Saving game log for game ${this.gameId}...`);
-      const response = await fetch('/api/game-logs', {
+      const response = await fetch(`${getPlayerServiceUrl()}/api/game-logs`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

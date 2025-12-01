@@ -168,4 +168,11 @@ export class PlayerManager {
     });
     console.log(`📜 Set custom rules for all ${this.players.size} players (and saved for future players)`);
   }
+
+  /**
+   * 获取全局 API Key
+   */
+  getGlobalApiKey(): string | undefined {
+    return this.globalApiKey;
+  }
 }

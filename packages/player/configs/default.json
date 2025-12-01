@@ -6,7 +6,7 @@
   "ai": {
     "model": "anthropic/claude-3-haiku",
     "maxTokens": 150,
-    "temperature": 0.8,
+    "temperature": 1.0,
     "provider": "openrouter"
   },
   "game": {

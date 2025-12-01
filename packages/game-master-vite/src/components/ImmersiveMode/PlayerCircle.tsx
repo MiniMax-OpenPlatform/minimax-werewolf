@@ -16,10 +16,10 @@ interface PlayerCircleProps {
 
 // 角色到图片的映射
 const ROLE_IMAGES: Record<Role, string> = {
-  [Role.VILLAGER]: '/images/roles/cunmin.png',
-  [Role.WEREWOLF]: '/images/roles/langren.png',
-  [Role.SEER]: '/images/roles/yuyanjia.png',
-  [Role.WITCH]: '/images/roles/nvwu.png',
+  [Role.VILLAGER]: `${import.meta.env.BASE_URL}images/roles/cunmin.png`,
+  [Role.WEREWOLF]: `${import.meta.env.BASE_URL}images/roles/langren.png`,
+  [Role.SEER]: `${import.meta.env.BASE_URL}images/roles/yuyanjia.png`,
+  [Role.WITCH]: `${import.meta.env.BASE_URL}images/roles/nvwu.png`,
 };
 
 export const PlayerCircle = observer(function PlayerCircle({

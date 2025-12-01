@@ -326,8 +326,8 @@ app.post('/api/tts/generate', async (req, res) => {
       return res.status(400).json({ error: 'Invalid voiceId parameter' });
     }
 
-    // 使用与玩家相同的API key
-    const apiKey = process.env.MINIMAX_API_KEY;
+    // 使用与玩家相同的API key（优先使用全局配置的key，其次使用环境变量）
+    const apiKey = playerManager.getGlobalApiKey() || process.env.MINIMAX_API_KEY;
     if (!apiKey) {
       return res.status(500).json({ error: 'MiniMax API key not configured' });
     }

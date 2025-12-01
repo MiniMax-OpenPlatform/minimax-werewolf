@@ -80,11 +80,22 @@ export abstract class BasePlayer {
   }
 
   protected buildContext(gameMaster: GameMaster):PlayerContext {
+    // 过滤掉 night_action 类型的发言（夜晚私密行动），只保留公开发言
+    const allSpeeches = gameMaster.getSpeeches();
+    const publicSpeeches: typeof allSpeeches = {};
+
+    for (const [round, speeches] of Object.entries(allSpeeches)) {
+      // 只保留 player 和 system 类型的发言，过滤掉 night_action
+      publicSpeeches[Number(round)] = speeches.filter(
+        speech => speech.type !== 'night_action'
+      );
+    }
+
     return {
       round:gameMaster.round,
       currentPhase:gameMaster.currentPhase,
       alivePlayers: playersToInfo(gameMaster.alivePlayers),
-      allSpeeches: gameMaster.getSpeeches(),
+      allSpeeches: publicSpeeches,
       allVotes: gameMaster.allVotes
     };
   }
