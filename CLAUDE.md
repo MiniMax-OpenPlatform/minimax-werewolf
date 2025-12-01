@@ -3,14 +3,18 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Overview
-AI-powered Werewolf game framework - a monorepo implementing an AI-driven multiplayer werewolf game with distinct AI personalities.
+AI-powered Werewolf game framework - a monorepo implementing an AI-driven multiplayer werewolf game with distinct AI personalities, featuring immersive TTS audio, background music, and real-time visualization.
+
+🎮 **Online Demo**: https://solution.minimaxi.com/werewolf/
 
 ## Tech Stack & Package Manager
 - **Package Manager**: Bun (no build step needed for backend, direct execution)
 - **Frontend**: Vite + React + MobX + TailwindCSS
 - **Backend**: Node.js/Bun + Express
-- **AI Integration**: OpenAI SDK, Langfuse telemetry
+- **AI Integration**: MiniMax AI (MiniMax-M2 model), Langfuse telemetry
+- **Audio**: Web Audio API, TTS (Text-to-Speech), Background Music
 - **State Management**: MobX with global stores
+- **Deployment**: Docker + Docker Compose
 - 我用bun，不需要build
 
 ## Critical Development Rules
@@ -18,8 +22,25 @@ AI-powered Werewolf game framework - a monorepo implementing an AI-driven multip
 - **Always use ultrathink** for complex reasoning tasks
 - **Player IDs**: Always use numbers for Player IDs
 - **Shared Types**: Only put types in shared/ if needed by Player services (e.g., API types called by game master)
+- **MobX Reactivity**: ALL components using MobX state MUST use `observer` HOC
+- **Audio Context**: TTS and BGM use synchronized AudioCoordinator for ducking
 
 ## Common Development Commands
+
+### Docker Deployment (Production)
+```bash
+# Build and run with Docker Compose
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Stop containers
+docker-compose down
+
+# Rebuild after code changes
+docker-compose up -d --build
+```
 
 ### Development
 ```bash
@@ -64,13 +85,26 @@ bun run test:coverage
 packages/
 ├── game-master-vite/   # Frontend UI (Vite + React + MobX)
 │   └── src/
-│       ├── components/ # React components with observer HOC
-│       ├── stores/     # MobX global stores
-│       └── lib/        # GameMaster class
+│       ├── components/      # React components with observer HOC
+│       │   ├── ImmersiveMode/  # Immersive view components
+│       │   │   ├── ImmersiveView.tsx     # Main immersive mode
+│       │   │   ├── EventTimeline.tsx     # Left panel: key events
+│       │   │   ├── ThinkingPanel.tsx     # Right panel: inner thoughts
+│       │   │   ├── PlayerCircle.tsx      # Circular player layout
+│       │   │   └── PhaseIndicator.tsx    # Game phase display
+│       ├── stores/          # MobX global stores
+│       └── lib/             # GameMaster class, audio system
+│           ├── GameMaster.ts         # Core game logic
+│           ├── PlayerAPIClient.ts    # HTTP client for AI players
+│           └── audio/                # Audio system
+│               ├── AudioCoordinator.ts      # TTS + BGM coordinator
+│               ├── TTSQueue.ts             # TTS playback queue
+│               └── BackgroundMusicPlayer.ts # Phase-based BGM
 ├── player/             # AI player server
 │   └── src/
 │       ├── services/   # AIService, PersonalityFactory
-│       └── configs/    # Player personality configs
+│       ├── configs/    # Player personality configs (JSON)
+│       └── prompts/    # Modular prompt templates
 shared/
 ├── types/              # Shared TypeScript types & schemas
 │   └── src/
@@ -82,9 +116,10 @@ shared/
 
 ### Core Game Flow
 1. **Game Creation**: Frontend calls `gameMaster.createGame(6)` → adds 6 AI players → assigns roles
-2. **Game Phases**: Day (discussion + voting) → Night (role abilities) → repeat
+2. **Game Phases**: Night (role abilities) → Day (discussion) → Voting → repeat
 3. **AI Players**: Each runs on separate port (3001-3006), receives game state via HTTP API
 4. **Role System**: 4 roles only - VILLAGER, WEREWOLF, SEER, WITCH (no HUNTER/GUARD)
+5. **Immersive Mode**: TTS narration, background music, real-time event timeline, inner thoughts display
 
 ## MobX React Development Pattern
 
@@ -105,122 +140,151 @@ export const Component = observer(function Component() {
 2. **Observer Wrapper**: ALL components using MobX state MUST use `observer` HOC
 3. **Computed Properties**: Use `computed` for derived data to optimize performance
 4. **Avoid Redundant APIs**: Get data directly from state, don't make unnecessary network requests
+5. **Observable GameLog**: `gameMaster.gameLog` is observable for real-time updates to EventTimeline/ThinkingPanel
+
+## Immersive Mode Architecture
+
+### Audio System
+**AudioCoordinator** (`packages/game-master-vite/src/lib/audio/AudioCoordinator.ts`):
+- Manages TTS Queue and Background Music Player
+- Implements audio ducking (BGM volume reduces when TTS plays)
+- Phase-aware music switching (night.mp3, day.mp3, voting.mp3)
+- TTS completion tracking for UI synchronization
+
+**Key Components**:
+- `TTSQueue`: Sequential TTS playback queue with status callbacks
+- `BackgroundMusicPlayer`: Phase-based music with fade in/out
+- `subscribeTTS()`: Allows components to react to TTS state changes
+
+### Display Synchronization
+**EventTimeline** (Left Panel):
+- Shows key events: night actions, speeches, votes, deaths
+- Events appear ONLY after corresponding TTS completes
+- Uses `displayedSpeechIds` Set to track completed TTS
+
+**ThinkingPanel** (Right Panel):
+- Shows AI inner thoughts (thinking field from API responses)
+- Appears progressively as each TTS completes
+- Extracts thinking from `speechSystem.getAllSpeeches()`
+
+**Implementation Pattern**:
+```typescript
+// Track TTS completion by detecting ID changes
+if (lastPlayingTTSIdRef.current !== currentTTSId) {
+  const speechId = ttsToSpeechMapRef.current.get(previousTTSId);
+  setDisplayedSpeechIds(prev => new Set([...prev, speechId]));
+}
+```
 
 ## Critical Integration Points
+
+### MiniMax AI Integration
+- **API Key Configuration**: Set via Web UI (no .env needed for production)
+- **Model**: MiniMax-M2 with extended thinking chain
+- **Response Format**: Structured outputs with Zod schemas
+- **Thinking Field**: All AI responses include `thinking` for inner thoughts display
 
 ### Langfuse Telemetry
 - Located in `shared/lib/src/langfuse.ts`
 - Key exports: `getAITelemetryConfig`, `shutdownLangfuse`, `langfuse` object
 - Browser-safe implementation (no-op flush in frontend)
-
-### AI Service Architecture
-- `AIService` class handles all AI interactions
-- Personality system via `PersonalityFactory`
-- Each player has configurable personality affecting decisions
-- Zod schemas validate AI responses (see `shared/types/src/schemas.ts`)
+- Tracks: game sessions, player actions, AI generation events
 
 ### Game State Management
 - Frontend: Global `GameMaster` instance in `packages/game-master-vite/src/stores/gameStore.ts`
+- **GameLog**: In-memory structured log with speeches, votes, nightActions, events
+- **SpeechSystem**: Stores all speeches by round with thinking/traceId
 - Players maintain local state, receive updates via API
 - State sync through HTTP endpoints, no WebSocket
 
+### TTS-Speech Synchronization
+**Key Pattern**: Map TTS IDs to Speech IDs for completion tracking
+```typescript
+// When enqueueing TTS
+const ttsId = audioCoordinator.enqueueTTS({...});
+const speechId = `${roundNum}-${index}`;
+ttsToSpeechMapRef.current.set(ttsId, speechId);
+
+// When TTS completes
+const speechId = ttsToSpeechMapRef.current.get(ttsId);
+setDisplayedSpeechIds(prev => new Set([...prev, speechId]));
+```
+
 ## Player Configuration
-AI players run on ports 3001-3006 with personalities defined in YAML configs:
+AI players run on ports 3001-3006 with personalities defined in JSON configs:
 - **Port 3001-3006**: Individual AI players with unique personalities
-- Config files: `config/player[1-6].yaml`
-- Each player has strategy (aggressive/conservative/balanced), speech style (casual/formal/witty)
+- Config files: `packages/player/configs/*.json`
+- Each player has:
+  - `personality`: Detailed personality description
+  - `strategy`: aggressive/conservative/balanced
+  - `speechStyle`: casual/formal/witty
+  - `voiceId`: TTS voice identifier
 
 ## UI Components
-- **Game Controls**: Blue create, green start, purple next phase, red end buttons
-- **Player Cards**: Show role icons (🐺🔮🧪👤), alive/dead status
-- **Auto-setup**: "Create New Game" button automatically configures 6 AI players
+
+### Game Controls
+- **Create New Game**: Blue button, auto-configures 6 AI players
+- **Start Game**: Green button, enabled when game created
+- **Next Phase**: Purple button, disabled during processing or TTS playback
+- **Enter Immersive Mode**: Purple gradient button, enabled after game creation
+
+### Immersive Mode Layout
+```
+[Exit Button]                                    (top-left)
+┌─────────────────────────────────────────────────────────┐
+│  Left Panel (w-64)  │  Center (flex-1)  │  Right Panel (w-80) │
+│  📜 Event Timeline  │  Player Circle    │  💭 Thinking Panel   │
+│  - Night actions    │  Phase Indicator  │  - Inner thoughts    │
+│  - Speeches         │  Game Controls    │  - By speech/action  │
+│  - Votes            │                   │                      │
+│  - Deaths           │                   │                      │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Player Cards
+- Show role icons (🐺🔮🧪👤), alive/dead status
+- Circular layout in immersive mode
+- Highlight animation when speaking
 
 ## Environment Configuration
 
-### Required Environment Variables (.env)
+### Docker Deployment (.env)
 ```bash
-# AI Provider (OpenRouter recommended - supports multiple models)
-OPENROUTER_API_KEY=your_key_here
-AI_MODEL=google/gemini-2.5-flashm  # or other OpenRouter models
+# MiniMax API Key (can also be set via Web UI)
+MINIMAX_API_KEY=your_key_here
 
-# Langfuse Telemetry (optional but recommended)
+# Langfuse Telemetry (optional)
 LANGFUSE_SECRET_KEY=your_secret_key
 LANGFUSE_PUBLIC_KEY=your_public_key
 LANGFUSE_BASEURL=https://us.cloud.langfuse.com
 ```
 
-### Player Configuration (YAML)
-Config files in `config/` directory define per-player settings:
-- `server.port`: Player server port (3001-3008 for 8 players)
-- `server.host`: Server host (default "0.0.0.0")
-- `ai.maxTokens`: Max tokens for AI responses (default 5000)
-- `ai.temperature`: AI temperature setting (default 0.8)
-- `ai.provider`: AI provider (e.g., "openrouter")
-- `game.personality`: Custom personality description
-- `game.strategy`: Strategy type (aggressive/conservative/balanced)
-- `logging.enabled`: Enable/disable logging
-
-## Testing
-
-### Running Tests
-```bash
-# Run all tests with Bun
-bun test
-
-# Watch mode
-bun run test:watch
-
-# Coverage report
-bun run test:coverage
-
-# Test specific packages
-bun run test:packages
-```
-
-### API Testing
-Test player endpoints directly:
-```bash
-# Test player speech generation
-curl -X POST http://localhost:3001/api/player/speak \
-  -H "Content-Type: application/json" \
-  -d '{"otherSpeeches": ["player2: 我觉得player3很可疑"]}'
-
-# Check player status
-curl http://localhost:3001/api/player/status
-```
-
-## Player Count Configuration
-- Script supports **8 players** (ports 3001-3008)
-- Frontend currently optimized for **6 players**
-- To add more players, update both:
-  - `scripts/dev-players.sh` (player array)
-  - Game configuration for role distribution
+### Audio Assets
+Audio files in `audio/` directory:
+- `bgm/night.mp3` - Night phase background music
+- `bgm/day.mp3` - Day phase background music
+- `bgm/voting.mp3` - Voting phase background music
+- **Volume**: BGM defaults to 50%, ducks to 30% during TTS
 
 ## Prompt System Architecture
 
 ### Prompt Organization
 Prompts are modular and role-specific in `packages/player/src/prompts/`:
-- `personality/` - Personality trait prompts (aggressive/conservative/cunning)
+- `personality/` - Personality trait prompts
 - `speech/` - Role-specific speech generation prompts
 - `voting/` - Voting decision prompts by role
 - `night/` - Night action prompts for special roles
-- `special/` - Special scenarios (last words, etc.)
 
-### WerewolfPrompts Factory
-Main interface for prompt generation:
-- `WerewolfPrompts.getPersonality()` - Get personality prompt
-- `WerewolfPrompts.getSpeech()` - Generate speech prompt
-- `WerewolfPrompts.getVoting()` - Generate voting prompt
-- `WerewolfPrompts.getNightAction()` - Generate night action prompt
+### Voting Prompt Optimization
+- Voting phase: AI outputs vote target + thinking, NO public speech
+- History format: "X号投票给Y号" (simplified, no reasoning)
+- TTS plays: "我投 X 号" (short announcement only)
 
-## AI Response Validation
-
-All AI responses use Zod schemas for validation (`shared/types/src/schemas.ts`):
-- `SpeechResponseSchema` - Speech generation
-- `VotingResponseSchema` - Voting decisions
-- `WerewolfNightActionSchema` - Werewolf kill action
-- `SeerNightActionSchema` - Seer investigate action
-- `WitchNightActionSchema` - Witch heal/poison actions
+### Night Phase Flow
+- System announces: "狼人请杀人" → waits 3.5s → werewolf acts
+- System announces: "预言家请指认" → waits 3.5s → seer acts
+- System announces: "女巫请确认是否使用药水" → waits 3.5s → witch acts
+- Night action speeches include `thinking` field for ThinkingPanel
 
 ## API Communication Pattern
 
@@ -234,14 +298,11 @@ Game master sends HTTP requests to player servers on ports 3001-3008:
 - `POST /api/player/ability` - Request night ability usage (role-specific)
 - `GET /api/player/status` - Health check and player status
 
-**Context Payload:**
-All requests include `PlayerContext` with:
-- `round`: Current round number
-- `phase`: Current game phase (DAY/NIGHT/etc.)
-- `alivePlayers`: Array of alive player IDs
-- `votingHistory`: Historical voting data
-- `speeches`: Recent player speeches
-- Role-specific context (e.g., `WitchContext` includes werewolf target)
+**Response Format:**
+All responses include:
+- `thinking`: Inner thoughts for ThinkingPanel display
+- `traceId`: Langfuse trace ID for debugging
+- Action-specific fields (speech, target, reason, etc.)
 
 ### Player API Client (`PlayerAPIClient`)
 Located in `packages/game-master-vite/src/lib/PlayerAPIClient.ts`:
@@ -250,12 +311,42 @@ Located in `packages/game-master-vite/src/lib/PlayerAPIClient.ts`:
 - Timeout handling (configurable per request type)
 - Error fallback to default responses
 
+## Game History System
+
+### GameLog Structure
+Located in `packages/game-master-vite/src/lib/GameMaster.ts`:
+```typescript
+interface GameLog {
+  gameId: string;
+  startTime: string;
+  endTime?: string;
+  duration?: number;
+  config: GameConfig;
+  players: GameLogPlayerInfo[];
+  totalRounds: number;
+  speeches: SpeechLog[];      // All player speeches
+  votes: VoteLog[];           // All voting records
+  nightActions: NightActionLog[];  // All night actions
+  events: GameEvent[];        // Game events (deaths, phase changes)
+  result?: GameResult;        // Winner, reason, survivors
+}
+```
+
+### Storage
+- In-memory during gameplay
+- Saved to backend API on game end
+- Retrieved via `GET /api/game-logs` and `GET /api/game-logs/:gameId`
+
 ## Logging & Monitoring
 
-### Log Files
-Development logs in `logs/` directory:
-- `player1-dev.log` through `player8-dev.log` - Player logs
-- `game-master-dev.log` - Game master logs (if configured)
+### Browser Console Logs
+Key log patterns for debugging:
+```
+[ImmersiveView] TTS switched, mark previous speech as displayed: 1-8
+[ImmersiveView] Player TTS queued - ttsId: xxx, speechId: 1-8, playerId: 3
+[TTSQueue] Item completed: tts-xxx
+[BGM] Switching to phase: day
+```
 
 ### Langfuse Tracing
 - Game sessions traced with game ID
@@ -263,8 +354,44 @@ Development logs in `logs/` directory:
 - Phase-level tracing for game flow analysis
 - AI generation events logged with telemetry
 
+## Recent Major Changes
+
+### v1.2.0 - Immersive Mode Enhancements (2024-12)
+- ✅ TTS-synchronized event timeline and thinking panels
+- ✅ Night action thinking properly displayed
+- ✅ Voting speech optimization (short announcements only)
+- ✅ Audio control panel removed (default 50% volume)
+- ✅ Immersive mode entry restricted to after game creation
+- ✅ GitHub link added to header
+
+### Known Behaviors
+- **Night Actions**: Display as text immediately (no TTS), thinking appears instantly
+- **Player Speeches**: TTS plays, then event + thinking appear in panels
+- **Voting**: TTS plays "我投X号", then vote event + thinking appear
+- **Phase Processing**: "Next Phase" button disabled during AI processing or TTS playback
+
+## Development Tips
+
+### Adding New Audio Features
+1. Update `AudioCoordinator` for new audio types
+2. Create mapping in `ttsToSpeechMapRef` for completion tracking
+3. Update `displayedSpeechIds` logic in TTS subscription
+4. Test with console logs to verify completion detection
+
+### Adding New Game Events
+1. Add to `GameLog.events` array in `GameMaster.ts`
+2. Update `EventTimeline.tsx` to display new event type
+3. Ensure event has `timestamp` or `round` for sorting
+
+### Debugging TTS Issues
+- Check browser console for `[TTSQueue]` and `[ImmersiveView]` logs
+- Verify `ttsToSpeechMapRef` mapping is created when enqueueing
+- Ensure `subscribeTTS` callback detects TTS ID changes
+- Test with different speech types (system/player/night_action)
+
 ## Known Issues & Fixes
+- **TTS Completion**: Use TTS ID change detection, not `status === 'completed'`
+- **Night Action Thinking**: Must pass `thinking` parameter to `addSpeech()`
+- **Audio Ducking**: BGM must check if fadeIn completed before ducking
 - **Langfuse Integration**: `getAITelemetryConfig` must be exported from `shared/lib/src/langfuse.ts`
-- **Create Game**: Must add players and assign roles after game creation
 - **Type Imports**: Always import `PersonalityType` when using AI services
-- **Script Permissions**: Ensure `dev-players.sh` is executable: `chmod +x scripts/dev-players.sh`
