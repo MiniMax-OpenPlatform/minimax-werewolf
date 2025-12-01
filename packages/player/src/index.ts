@@ -11,6 +11,7 @@ import { PlayerManager } from './PlayerManager';
 import { ConfigLoader } from './config/PlayerConfig';
 import { GameLogService } from './services/GameLogService';
 import { TTSService, AVAILABLE_VOICES } from './services/TTSService';
+import { UserStatsService } from './services/UserStatsService';
 import {
   VotingResponseSchema,
   SpeechResponseSchema,
@@ -48,6 +49,11 @@ const gameLogService = new GameLogService(logDir);
 
 // 创建 TTSService 实例
 const ttsService = new TTSService();
+
+// 创建 UserStatsService 实例
+// 使用 /app/stats 目录（Docker容器内）或 ./stats（本地开发）
+const statsDir = process.env.NODE_ENV === 'production' ? '/app/stats' : path.join(process.cwd(), 'stats');
+const userStatsService = new UserStatsService(statsDir);
 
 // 配置端口
 const PORT = parseInt(process.env.PORT || String(defaultConfig.server.port)) || 3001;
@@ -291,6 +297,49 @@ app.post('/api/config/rules', (req, res) => {
 });
 
 // ============================================
+// 用户统计 API
+// ============================================
+
+/**
+ * 记录用户心跳（用户活动）
+ * POST /api/user-stats/heartbeat
+ * Body: { apiKey: string }
+ */
+app.post('/api/user-stats/heartbeat', (req, res) => {
+  try {
+    const { apiKey } = req.body;
+
+    if (!apiKey || typeof apiKey !== 'string') {
+      return res.status(400).json({ error: 'Invalid API key' });
+    }
+
+    const userId = userStatsService.recordUserHeartbeat(apiKey);
+
+    res.json({
+      message: 'Heartbeat recorded',
+      userId,
+    });
+  } catch (error) {
+    console.error('Heartbeat error:', error);
+    res.status(500).json({ error: 'Failed to record heartbeat' });
+  }
+});
+
+/**
+ * 获取用户统计数据
+ * GET /api/user-stats
+ */
+app.get('/api/user-stats', (_req, res) => {
+  try {
+    const stats = userStatsService.getUserStats();
+    res.json(stats);
+  } catch (error) {
+    console.error('Get user stats error:', error);
+    res.status(500).json({ error: 'Failed to get user stats' });
+  }
+});
+
+// ============================================
 // TTS API
 // ============================================
 
@@ -504,14 +553,24 @@ app.listen(PORT, HOST, () => {
   console.log(`   DELETE /api/game-logs/:gameId          - 删除游戏日志`);
   console.log(`   GET    /api/tts/voices                 - 获取可用音色列表`);
   console.log(`   POST   /api/tts/generate               - 文本转语音`);
+  console.log(`   POST   /api/user-stats/heartbeat       - 记录用户心跳`);
+  console.log(`   GET    /api/user-stats                 - 获取用户统计`);
   console.log(`   GET    /api/health                     - 健康检查`);
   console.log(`📁 Game logs directory: ${gameLogService.getLogDirectory()}`);
+  console.log(`📊 User stats directory: ${statsDir}`);
   console.log();
 });
 
 // 优雅关闭处理
 const gracefulShutdown = async (signal: string) => {
   console.log(`\n📊 收到 ${signal} 信号，正在关闭服务器...`);
+
+  try {
+    // 保存用户统计数据
+    userStatsService.flush();
+  } catch (error) {
+    console.error('❌ 用户统计数据保存失败:', error);
+  }
 
   try {
     await shutdownLangfuse();

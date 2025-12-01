@@ -2,11 +2,12 @@
 import { useState } from 'react';
 import { GameConsole } from '@/components/GameConsole';
 import { GameHistory } from '@/components/GameHistory';
+import { UserStats } from '@/components/UserStats';
 import { Button } from '@/components/ui/button';
 import './globals.css';
 
 function App() {
-  const [activeView, setActiveView] = useState<'game' | 'history'>('game');
+  const [activeView, setActiveView] = useState<'game' | 'history' | 'stats'>('game');
 
   return (
     <div className="min-h-screen bg-background">
@@ -47,12 +48,20 @@ function App() {
             >
               历史记录
             </Button>
+            <Button
+              onClick={() => setActiveView('stats')}
+              variant={activeView === 'stats' ? 'default' : 'outline'}
+            >
+              用户统计
+            </Button>
           </div>
         </div>
       </header>
 
       <main className="container mx-auto px-6 py-8 max-w-[90rem]">
-        {activeView === 'game' ? <GameConsole /> : <GameHistory />}
+        {activeView === 'game' && <GameConsole />}
+        {activeView === 'history' && <GameHistory />}
+        {activeView === 'stats' && <UserStats />}
       </main>
     </div>
   );

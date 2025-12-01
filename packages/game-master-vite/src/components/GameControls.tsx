@@ -10,6 +10,7 @@ import { gameMaster } from '@/stores/gameStore';
 import { getPlayerServiceUrl } from '@/lib/playerConfig';
 import { GameRulesModal } from './GameRulesModal';
 import { ImmersiveView } from './ImmersiveMode/ImmersiveView';
+import { useUserHeartbeat } from '@/hooks/useUserHeartbeat';
 
 const DEFAULT_PERSONALITIES = [
   '理性分析型玩家，善于逻辑推理，不轻易相信他人但也不会过度怀疑',
@@ -48,6 +49,9 @@ export const GameControls = observer(function GameControls() {
     DEFAULT_VOICE_IDS.slice(0, 6)
   );
   const [availableVoices, setAvailableVoices] = useState<Voice[]>([]);
+
+  // 用户心跳（每分钟发送一次）
+  useUserHeartbeat(apiKey, true, 60000);
 
   // 加载可用音色列表
   useEffect(() => {
